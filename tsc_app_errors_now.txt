@@ -1,0 +1,16 @@
+src/pages/ProfileDetail.tsx(183,28): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(184,28): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(189,22): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(195,102): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(196,24): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(198,78): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(200,86): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(200,112): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(201,126): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(201,149): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(202,110): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(224,20): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(231,98): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(239,98): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(334,21): error TS2322: Type '(date: Date, time: string) => void' is not assignable to type '(payload: { date: Date; time: string; tier: CalendarTier; }) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.

@@ -151,12 +151,13 @@ const Home: React.FC<HomeProps> = ({ theme, toggleTheme }) => {
               <h2 className="font-heading text-3xl font-bold text-[hsl(var(--foreground))]">Top Matches Near You</h2>
               <p className="text-[hsl(var(--muted-foreground))] mt-2">AI-curated professionals based on your profile</p>
             </div>
-            <Link
-              to="/discover"
-              className="hidden sm:flex items-center gap-2 text-sm font-medium text-[hsl(var(--cp-indigo))] hover:gap-3 transition-all duration-200"
-            >
-              View all <ArrowRight className="w-4 h-4" />
-            </Link>
+              <Link
+                to="/login"
+                className="hidden sm:flex items-center gap-2 text-sm font-medium text-[hsl(var(--cp-indigo))] hover:gap-3 transition-all duration-200"
+              >
+                View all
+                <ArrowRight className="w-4 h-4" />
+              </Link>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {professionals.map((p, i) => (
@@ -185,7 +186,7 @@ const Home: React.FC<HomeProps> = ({ theme, toggleTheme }) => {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                to="/discover"
+                to="/login"
                 className="px-10 py-4 rounded-full bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white font-semibold hover:scale-105 hover:shadow-2xl transition-all duration-300"
               >
                 Start for Free

@@ -6,7 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface HeaderProps {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  mobileMode?: boolean;
+  toggleMobileMode?: () => void;
 }
+
 
 const navLinks = [
   { label: 'Home', path: '/' },
@@ -88,12 +91,7 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <Link
-              to="/discover"
-              className="hidden md:inline-flex items-center px-5 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 hover:shadow-lg transition-all duration-200"
-            >
-              Get Started
-            </Link>
+
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle mobile menu"
@@ -134,12 +132,6 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
                   </Link>
                 );
               })}
-              <Link
-                to="/discover"
-                className="mt-2 px-4 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold text-center"
-              >
-                Get Started
-              </Link>
             </nav>
           </motion.div>
         )}
@@ -149,3 +141,4 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
 };
 
 export default Header;
+

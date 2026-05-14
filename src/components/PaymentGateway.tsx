@@ -11,8 +11,9 @@ interface PaymentGatewayProps {
   onCancel: () => void;
 }
 
-const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY;
+const stripeKey = (import.meta as any).env?.VITE_STRIPE_PUBLIC_KEY;
+const razorpayKey = (import.meta as any).env?.VITE_RAZORPAY_KEY;
+
 
 const PaymentGateway: React.FC<PaymentGatewayProps> = ({ serviceTitle, amount, onComplete, onCancel }) => {
   const { currentUser, isDemoMode } = useAuth();

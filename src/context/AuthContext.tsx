@@ -129,32 +129,32 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       }
 
       if (!isSupabaseConfigured) {
-        setProfiles([...DEMO_PROFESSIONALS, ...loadStoredProfessionals()]);
-        setCurrentUser(getFallbackUser() || DEMO_USER);
-        setIsDemoMode(true);
+        // Production safety: without Supabase configured, do not pretend the user is authenticated.
+        setProfiles([]);
+        setCurrentUser(null);
+        setIsDemoMode(false);
         setLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Session error:', error.message);
-        }
+      const { data: sessionData, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Session error:', error.message);
+      }
 
-        if (data?.session?.user) {
-          const user = buildUser(data.session.user);
-          setCurrentUser(user);
-          setIsDemoMode(user.demo ?? false);
-          
-          if (data.session.expires_at) {
-            window.localStorage.setItem(SESSION_EXPIRY_KEY, String(data.session.expires_at));
-          }
+      if (sessionData?.session?.user) {
+        const user = buildUser(sessionData.session.user);
+        setCurrentUser(user);
+        setIsDemoMode(user.demo ?? false);
+
+        if (sessionData.session.expires_at) {
+          window.localStorage.setItem(SESSION_EXPIRY_KEY, String(sessionData.session.expires_at));
+        }
         } else {
-          setProfiles([...DEMO_PROFESSIONALS, ...loadStoredProfessionals()]);
-          setCurrentUser(getFallbackUser());
-          setIsDemoMode(true);
+          setProfiles([]);
+          setCurrentUser(null);
+          setIsDemoMode(false);
         }
 
         const { data: profileRows } = await supabase
@@ -169,9 +169,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        setProfiles([...DEMO_PROFESSIONALS, ...loadStoredProfessionals()]);
-        setCurrentUser(getFallbackUser());
-        setIsDemoMode(true);
+        setProfiles([]);
+        setCurrentUser(null);
+        setIsDemoMode(false);
       }
 
       setLoading(false);
@@ -183,7 +183,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const user = buildUser(session.user);
         setCurrentUser(user);
@@ -198,7 +198,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     });
 
     return () => {
-      data.subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, []);
 
@@ -206,11 +206,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     if (!isSupabaseConfigured || !currentUser || isDemoMode) return;
 
     try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      
-      if (data?.session?.expires_at) {
-        window.localStorage.setItem(SESSION_EXPIRY_KEY, String(data.session.expires_at));
+      const result = await supabase.auth.getSession();
+      const sessionData = result as unknown as { data?: { session?: { expires_at?: number } | null } };
+      const expiresAt = sessionData?.data?.session?.expires_at;
+
+      if (expiresAt) {
+        window.localStorage.setItem(SESSION_EXPIRY_KEY, String(expiresAt));
       }
     } catch (error) {
       console.error('Session refresh failed:', error);
@@ -218,15 +219,11 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   }, [currentUser, isDemoMode]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      saveStoredProfessionals(profiles);
-    }
+  if (!isSupabaseConfigured) return;
   }, [profiles]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      saveCurrentUser(currentUser);
-    }
+  if (!isSupabaseConfigured) return;
   }, [currentUser]);
 
   const signIn = async (identifier: string, password: string): Promise<AppUser | null> => {
@@ -310,12 +307,21 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         },
       });
 
-      if (error || !result.data?.user) {
-        console.error('Sign up error:', error?.message);
+      // Some Supabase SDK versions expose different shapes for signUp result.
+      // We only need the created user id/email to build our AppUser.
+      const createdUser = (result as any)?.data?.user ?? (result as any)?.user;
+      if (error) {
+        console.error('Sign up error:', (error as any)?.message);
+        return null;
+      }
+      if (!createdUser) {
+        console.error('Sign up error: No created user returned.');
         return null;
       }
 
-      const user = buildUser(result.data.user);
+      const user = buildUser(createdUser);
+
+
       setCurrentUser(user);
       setIsDemoMode(false);
       return user;
@@ -332,11 +338,10 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       return;
     }
 
-    if (provider === 'Phone') {
-      await supabase.auth.signInWithOtp({
-        phone: '+911234567890',
-      });
-      return;
+  if (provider === 'Phone') {
+      // Phone OTP login is handled via the dedicated PhoneOtpLogin component.
+      // Keeping this here for backward-compatibility: redirect callers to phone OTP UI.
+      throw new Error('Phone OTP login is not initiated from AuthContext.socialSignIn; use PhoneOtpLogin.');
     }
 
     await supabase.auth.signInWithOAuth({

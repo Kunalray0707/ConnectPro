@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Briefcase, MessageCircle, Star, TrendingUp, Bell, Settings, LogOut, BadgeCheck, Calendar, Zap, Eye, Heart, Award, ChevronRight, Activity } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { professionals } from '../data/professionals';
@@ -34,6 +35,7 @@ const recentConnections = professionals.slice(0, 4);
 const tabs = ['Overview', 'Connections', 'Messages', 'Bookings', 'Analytics'];
 
 const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
+  const { currentUser, isAuthenticated, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('Overview');
   const [profileCompletion, setProfileCompletion] = useState(72);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -76,8 +78,8 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                 className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[hsl(var(--card))] transition-colors ${onlineStatus ? 'bg-emerald-500' : 'bg-amber-400'}`}
               />
             </div>
-            <p className="font-semibold text-sm text-[hsl(var(--foreground))]">Rahul Gupta</p>
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">Software Engineer</p>
+            <p className="font-semibold text-sm text-[hsl(var(--foreground))]">{currentUser?.name ?? 'Your Profile'}</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Account Settings</p>
             <div className="mt-3 w-full">
               <div className="flex justify-between text-xs text-[hsl(var(--muted-foreground))] mb-1">
                 <span>Profile</span>
@@ -118,12 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-all duration-200">
               <Settings className="w-4 h-4" /> Settings
             </button>
-            <button
-              onClick={() => toast.info('Sign out functionality — connect auth to enable.')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[hsl(var(--muted-foreground))] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 transition-all duration-200"
-            >
-              <LogOut className="w-4 h-4" /> Sign Out
-            </button>
+
           </div>
         </aside>
 

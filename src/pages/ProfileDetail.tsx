@@ -113,6 +113,15 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
   const { id } = useParams<{ id: string }>();
   const { profiles, loadProfessionals } = useAuth();
   const [professional, setProfessional] = useState<Professional | null>(fallbackProfessionals[0] ?? null);
+
+  if (!professional) {
+    return (
+      <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading profile...</p>
+      </div>
+    );
+  }
+
   const [saved, setSaved] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [connected, setConnected] = useState(false);
@@ -123,6 +132,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
   useEffect(() => {
     loadProfessionals();
   }, []);
+
 
   useEffect(() => {
     if (profiles.length > 0) {
@@ -135,11 +145,12 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
   }, [id, profiles]);
 
   const handleConnect = () => {
+    if (!professional) return;
     setConnected(true);
     toast.success(`Connected with ${professional.name}!`);
   };
 
-  const handleSlotSelect = (date: Date, time: string) => {
+  const handleSlotSelect = ({ date, time }: { date: Date; time: string; tier: any }) => {
     setBookingDetails({ date: format(date, 'yyyy-MM-dd'), time });
     setShowBookingModal(true);
   };

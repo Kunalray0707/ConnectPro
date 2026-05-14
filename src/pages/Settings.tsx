@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, CreditCard, Link2, Eye, BadgeCheck, ChevronRight, Camera, Save } from 'lucide-react';
+import { User, Bell, Shield, CreditCard, Link2, Eye, BadgeCheck, ChevronRight, Camera, Save, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -8,6 +8,8 @@ import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface SettingsProps {
   theme: 'light' | 'dark';
@@ -20,12 +22,17 @@ const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
-  bio: z.string().max(300, 'Bio must be under 300 characters'),
+  bio: z.string().max(300, 'Bio must be under 300 characters').optional().or(z.literal('')),
   location: z.string().min(2, 'Location is required'),
   role: z.string().min(2, 'Role is required'),
+  skills: z.string().optional().or(z.literal('')),
+  experience: z.string().optional().or(z.literal('')),
+  avatar_url: z.string().optional().or(z.literal('')),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+type SettingsTab = 'profile' | 'notifications' | 'privacy' | 'payment' | 'connected' | 'verification';
 
 type ConnectedAccount = {
   name: string;
@@ -41,17 +48,6 @@ type ProfileChange = {
   after: string;
 };
 
-type SettingsTab = 'profile' | 'notifications' | 'privacy' | 'payment' | 'connected' | 'verification';
-
-const defaultProfileData: ProfileFormData = {
-  name: 'Rahul Kumar',
-  email: 'rahul.kumar@example.com',
-  phone: '+91 98765 43210',
-  bio: 'Full Stack Developer with 5+ years of experience building scalable web applications.',
-  location: 'Bangalore, India',
-  role: 'Software Engineer',
-};
-
 const settingsTabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: <User size={18} /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={18} /> },
@@ -62,80 +58,179 @@ const settingsTabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] 
 ];
 
 const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => {} }) => {
+  const { currentUser, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
-  const [notifications, setNotifications] = useState({
-    email: true, push: true, sms: false, connections: true, messages: true, appointments: true, marketing: false,
-  });
-  const [privacy, setPrivacy] = useState({
-    profileVisible: true, showLocation: true, showEmail: false, showPhone: false, allowMessages: true,
-  });
-  const [savedProfile, setSavedProfile] = useState<ProfileFormData>(defaultProfileData);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  const [savedProfile, setSavedProfile] = useState<ProfileFormData | null>(null);
   const [profileChanges, setProfileChanges] = useState<ProfileChange[]>([]);
   const [showSaveSummary, setShowSaveSummary] = useState(false);
+
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: true,
+    sms: false,
+    connections: true,
+    messages: true,
+    appointments: true,
+    marketing: false,
+  });
+
+  const [privacy, setPrivacy] = useState({
+    profileVisible: true,
+    showLocation: true,
+    showEmail: false,
+    showPhone: false,
+    allowMessages: true,
+  });
+
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([
     { name: 'GitHub', icon: '⚫', username: 'Kunalray0707', profileUrl: 'https://github.com/Kunalray0707', connected: false },
     { name: 'LinkedIn', icon: '🔷', username: 'kunal-ray-3483812b9', profileUrl: 'https://linkedin.com/in/kunal-ray-3483812b9', connected: false },
   ]);
 
+  const defaultValues: ProfileFormData = useMemo(
+    () => ({
+      name: currentUser?.name ?? '',
+      email: currentUser?.email ?? '',
+      phone: currentUser?.phone ?? '',
+      bio: '',
+      location: currentUser?.location ?? '',
+      role: currentUser?.role ?? '',
+      skills: '',
+      experience: '',
+      avatar_url: '',
+    }),
+    [currentUser]
+  );
+
   const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
-    defaultValues: defaultProfileData,
+    defaultValues,
   });
 
   useEffect(() => {
-    const storedProfile = localStorage.getItem('cp-profile-data');
-    if (storedProfile) {
-      try {
-        const parsed = JSON.parse(storedProfile) as ProfileFormData;
-        setSavedProfile(parsed);
-        reset(parsed);
-      } catch {
-        // ignore parse errors
-      }
-    }
+    const init = async () => {
+      if (!currentUser?.id) return;
 
+      setLoadingProfile(true);
+      try {
+        // Fetch user profile fields from `profiles`.
+        // Expected columns: user_id, name, phone, location, role, bio, skills, experience, avatar_url.
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('user_id, name, phone, location, role, bio, skills, experience, avatar_url, avatar')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const row: any = data;
+        const skillsStr = Array.isArray(row?.skills)
+          ? row.skills.join(', ')
+          : row?.skills
+            ? String(row.skills)
+            : '';
+
+        const avatar = row?.avatar_url || row?.avatar || '';
+
+        const loaded: ProfileFormData = {
+          name: row?.name ?? currentUser.name ?? '',
+          email: currentUser.email ?? row?.email ?? '',
+          phone: row?.phone ?? currentUser.phone ?? '',
+          bio: row?.bio ?? '',
+          location: row?.location ?? currentUser.location ?? '',
+          role: row?.role ?? currentUser.role ?? '',
+          skills: skillsStr,
+          experience: row?.experience ?? '',
+          avatar_url: avatar,
+        };
+
+        setSavedProfile(loaded);
+        reset(loaded);
+      } catch (e: any) {
+        console.error('Load profile error:', e);
+        const loaded = {
+          ...defaultValues,
+          bio: '',
+          skills: '',
+          experience: '',
+          avatar_url: '',
+        };
+        setSavedProfile(loaded);
+        reset(loaded);
+        toast.error('Could not load profile from database. Using local defaults.');
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
+  useEffect(() => {
     const storedAccounts = localStorage.getItem('cp-connected-accounts');
     if (storedAccounts) {
       try {
         setConnectedAccounts(JSON.parse(storedAccounts) as ConnectedAccount[]);
       } catch {
-        // ignore parse errors
+        // ignore
       }
     }
-  }, [reset]);
+  }, []);
 
-  const onSubmit = (data: ProfileFormData) => {
+  const onSubmit = async (data: ProfileFormData) => {
+    if (!currentUser?.id || !savedProfile) return;
+
     const changes: ProfileChange[] = [];
     (Object.keys(data) as Array<keyof ProfileFormData>).forEach((key) => {
-      const before = savedProfile[key] || '';
-      const after = data[key] || '';
-      if (before !== after) {
-        changes.push({ label: key.replace(/([A-Z])/g, ' $1'), before, after });
+      const before = (savedProfile[key] ?? '') as any;
+      const after = (data[key] ?? '') as any;
+      if (String(before) !== String(after)) {
+        changes.push({ label: String(key).replace(/([A-Z])/g, ' $1'), before: String(before), after: String(after) });
       }
     });
 
-    setSavedProfile(data);
-    setProfileChanges(changes);
-    setShowSaveSummary(true);
-    localStorage.setItem('cp-profile-data', JSON.stringify(data));
-    toast.success('Profile updated successfully!');
+    try {
+      // Upsert into profiles table (user profile record)
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: currentUser.id,
+          name: data.name,
+          phone: data.phone,
+          location: data.location,
+          role: data.role,
+          bio: data.bio || null,
+          experience: data.experience || null,
+          skills: data.skills ? data.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+          avatar_url: data.avatar_url || null,
+          public: true,
+        })
+        .select();
+
+      if (error) throw error;
+
+      const nextSaved: ProfileFormData = {
+        ...data,
+        avatar_url: data.avatar_url || '',
+      };
+
+      setSavedProfile(nextSaved);
+      setProfileChanges(changes);
+      setShowSaveSummary(true);
+      toast.success('Profile updated successfully!');
+    } catch (e: any) {
+      console.error('Update profile error:', e);
+      toast.error('Failed to update profile.');
+    }
   };
 
   const handleToggleAccount = (accountName: string) => {
     setConnectedAccounts((prev) => {
-      const next = prev.map((account) => {
-        if (account.name === accountName) {
-          return { ...account, connected: !account.connected };
-        }
-        return account;
-      });
+      const next = prev.map((account) => (account.name === accountName ? { ...account, connected: !account.connected } : account));
       localStorage.setItem('cp-connected-accounts', JSON.stringify(next));
-      const changed = next.find((acc) => acc.name === accountName);
-      if (changed?.connected) {
-        toast.success(`${changed.name} connected successfully!`);
-      } else {
-        toast.info(`${changed?.name ?? accountName} disconnected successfully.`);
-      }
       return next;
     });
   };
@@ -170,14 +265,17 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
           </motion.div>
 
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Sidebar */}
             <aside className="md:w-56 flex-shrink-0">
               <nav className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-2 space-y-1">
                 {settingsTabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === tab.id ? 'bg-gradient-to-r from-[hsl(var(--cp-blue))]/15 to-[hsl(var(--cp-violet))]/10 text-[hsl(var(--cp-blue))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-[hsl(var(--cp-blue))]/15 to-[hsl(var(--cp-violet))]/10 text-[hsl(var(--cp-blue))]'
+                        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'
+                    }`}
                   >
                     <span className="flex items-center gap-3">{tab.icon}{tab.label}</span>
                     <ChevronRight size={14} className="opacity-50" />
@@ -186,30 +284,44 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
               </nav>
             </aside>
 
-            {/* Content */}
             <div className="flex-1">
               {activeTab === 'profile' && (
                 <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
                   <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-8">
-                    <h2 className="font-heading text-lg font-semibold text-[hsl(var(--foreground))] mb-6">Profile Information</h2>
+                    <div className="flex items-start justify-between gap-6 mb-6">
+                      <div>
+                        <h2 className="font-heading text-lg font-semibold text-[hsl(var(--foreground))]">Profile Information</h2>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Your details are saved to the database.</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await signOut();
+                          toast.success('Signed out');
+                          window.location.href = '/';
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-rose-400/40 text-rose-500 hover:bg-rose-500/10 transition-all duration-200 text-sm font-semibold"
+                      >
+                        <LogOut size={16} /> Sign Out
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-5 mb-8">
                       <div className="relative">
                         <img
-                          src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&crop=face"
+                          src={watchAvatar(savedProfile)}
                           alt="Profile"
                           width={80}
                           height={80}
                           className="w-20 h-20 rounded-2xl object-cover"
                         />
-                        <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(var(--cp-blue))] text-white flex items-center justify-center hover:scale-110 transition-transform duration-200">
+                        <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(var(--cp-blue))] text-white flex items-center justify-center hover:scale-110 transition-transform duration-200" type="button">
                           <Camera size={14} />
                         </button>
                       </div>
                       <div>
-                        <p className="font-heading font-semibold text-[hsl(var(--foreground))]">Rahul Kumar</p>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Software Engineer</p>
-                        <button className="text-xs text-[hsl(var(--cp-blue))] hover:underline mt-1">Change photo</button>
+                        <p className="font-heading font-semibold text-[hsl(var(--foreground))]">{savedProfile?.name || currentUser?.name || 'Your Name'}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{savedProfile?.role || currentUser?.role || 'Role'}</p>
+                        <p className="text-xs text-[hsl(var(--cp-blue))] hover:underline mt-1">Update photo via Profile Image URL</p>
                       </div>
                     </div>
 
@@ -240,24 +352,49 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                           <input {...register('location')} className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30" />
                           {errors.location && <p className="text-xs text-rose-500 mt-1">{errors.location.message}</p>}
                         </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">Profile Image URL</label>
+                          <input {...register('avatar_url')} placeholder="https://..." className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30" />
+                        </div>
                       </div>
+
                       <div>
                         <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">Bio</label>
                         <textarea {...register('bio')} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30 resize-none" />
                         {errors.bio && <p className="text-xs text-rose-500 mt-1">{errors.bio.message}</p>}
                       </div>
-                      <button type="submit" className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200">
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">Skills (comma separated)</label>
+                          <input {...register('skills')} className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1.5">Experience</label>
+                          <input {...register('experience')} className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30" />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loadingProfile}
+                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200 disabled:opacity-60"
+                      >
                         <Save size={16} /> Save Changes
                       </button>
                     </form>
-                    {showSaveSummary && (
+
+                    {showSaveSummary && savedProfile && (
                       <div className="mt-6 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-5">
                         <h3 className="font-semibold text-[hsl(var(--foreground))] mb-3">Saved Profile Details</h3>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {Object.entries(savedProfile).map(([key, value]) => (
-                            <div key={key} className="rounded-2xl bg-[hsl(var(--card))] p-4">
-                              <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-[0.2em]">{key}</p>
-                              <p className="mt-2 text-sm text-[hsl(var(--foreground))]">{value}</p>
+                          {(
+                            Object.entries(savedProfile) as Array<[keyof ProfileFormData, any]>
+                          ).map(([key, value]) => (
+                            <div key={String(key)} className="rounded-2xl bg-[hsl(var(--card))] p-4">
+                              <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-[0.2em]">{String(key)}</p>
+                              <p className="mt-2 text-sm text-[hsl(var(--foreground))]">{Array.isArray(value) ? value.join(', ') : String(value ?? '')}</p>
                             </div>
                           ))}
                         </div>
@@ -295,6 +432,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                             className={`relative w-11 h-6 rounded-full transition-all duration-200 ${value ? 'bg-[hsl(var(--cp-blue))]' : 'bg-[hsl(var(--muted))]'}`}
                             role="switch"
                             aria-checked={value}
+                            type="button"
                           >
                             <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${value ? 'translate-x-5' : 'translate-x-0'}`} />
                           </button>
@@ -324,6 +462,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                             className={`relative w-11 h-6 rounded-full transition-all duration-200 ${value ? 'bg-[hsl(var(--cp-blue))]' : 'bg-[hsl(var(--muted))]'}`}
                             role="switch"
                             aria-checked={value}
+                            type="button"
                           >
                             <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${value ? 'translate-x-5' : 'translate-x-0'}`} />
                           </button>
@@ -378,6 +517,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                           <button
                             onClick={() => handleToggleAccount(acc.name)}
                             className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 ${acc.connected ? 'border border-rose-400/40 text-rose-500 hover:bg-rose-500/10' : 'bg-[hsl(var(--cp-blue))]/10 text-[hsl(var(--cp-blue))] hover:bg-[hsl(var(--cp-blue))]/20'}`}
+                            type="button"
                           >
                             {acc.connected ? 'Disconnect' : 'Connect'}
                           </button>
@@ -401,19 +541,36 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                       ].map((item) => (
                         <div key={item.label} className="flex items-center justify-between p-4 border border-[hsl(var(--border))] rounded-xl">
                           <div className="flex items-center gap-3">
-                            <BadgeCheck size={20} className={item.status === 'verified' ? 'text-[hsl(var(--cp-blue))]' : item.status === 'pending' ? 'text-amber-500' : 'text-[hsl(var(--muted-foreground))]'} />
+                            <BadgeCheck
+                              size={20}
+                              className={
+                                item.status === 'verified'
+                                  ? 'text-[hsl(var(--cp-blue))]'
+                                  : item.status === 'pending'
+                                    ? 'text-amber-500'
+                                    : 'text-[hsl(var(--muted-foreground))]'
+                              }
+                            />
                             <div>
                               <p className="font-medium text-sm text-[hsl(var(--foreground))]">{item.label}</p>
                               <p className="text-xs text-[hsl(var(--muted-foreground))]">{item.desc}</p>
                             </div>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === 'verified' ? 'bg-emerald-500/10 text-emerald-600' : item.status === 'pending' ? 'bg-amber-500/10 text-amber-600' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              item.status === 'verified'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : item.status === 'pending'
+                                  ? 'bg-amber-500/10 text-amber-600'
+                                  : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                            }`}
+                          >
                             {item.status === 'verified' ? 'Verified' : item.status === 'pending' ? 'Pending' : 'Upload'}
                           </span>
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => toast.info('Document upload coming soon!')} className="mt-6 flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200">
+                    <button onClick={() => toast.info('Document upload coming soon!')} className="mt-6 flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200" type="button">
                       Upload Documents
                     </button>
                   </div>
@@ -429,4 +586,9 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
   );
 };
 
+function watchAvatar(profile: ProfileFormData | null | undefined) {
+  return profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&crop=face';
+}
+
 export default Settings;
+

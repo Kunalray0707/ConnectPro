@@ -45,7 +45,7 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
   };
 
   const reviews = [
-    { name: 'Rahul Gupta', rating: 5, date: '2 weeks ago', text: `${professional.name} is absolutely exceptional. Highly professional and knowledgeable.` },
+    { name: 'Anonymous Client', rating: 5, date: '2 weeks ago', text: `${professional.name} is absolutely exceptional. Highly professional and knowledgeable.` },
     { name: 'Sneha Patel', rating: 5, date: '1 month ago', text: 'Outstanding service. Would definitely recommend to anyone looking for this expertise.' },
     { name: 'Amit Verma', rating: 4, date: '2 months ago', text: 'Very good experience overall. Punctual and thorough in their approach.' },
   ];

@@ -1,0 +1,2 @@
+src/pages/ProfileDetail.tsx(343,21): error TS2322: Type '(date: Date, time: string) => void' is not assignable to type '(payload: { date: Date; time: string; tier: CalendarTier; }) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.

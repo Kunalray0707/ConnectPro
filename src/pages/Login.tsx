@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { toast } from 'react-toastify';
 import { ShieldCheck, Github, Chrome, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PhoneOtpLogin from '../components/PhoneOtpLogin';
 
 interface LoginProps {
   theme: 'light' | 'dark';
@@ -33,7 +34,7 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme, mobileMode = false, t
       return;
     }
     toast.success('Login successful');
-    navigate(user.isAdmin ? '/admin' : '/discover');
+    navigate(user.isAdmin ? '/admin' : '/dashboard');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -65,12 +66,12 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme, mobileMode = false, t
   const handleSocialLogin = async (provider: 'Google' | 'GitHub' | 'Phone') => {
     await socialSignIn(provider);
     toast.success(`Signed in with ${provider}`);
-    navigate('/discover');
+    navigate('/dashboard');
   };
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
-      <Header theme={theme} toggleTheme={toggleTheme} mobileMode={mobileMode} toggleMobileMode={toggleMobileMode} />
+      <Header theme={theme} toggleTheme={toggleTheme} />
       <main className="pt-24 pb-16">
         <div className="max-w-3xl mx-auto px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl p-10 shadow-sm">
@@ -119,90 +120,110 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme, mobileMode = false, t
                 <Github size={18} /> GitHub
               </button>
               <button
-                onClick={() => handleSocialLogin('Phone')}
+                onClick={() => setMode('signin')}
                 className="flex items-center justify-center gap-2 rounded-3xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-all duration-200"
               >
                 <Phone size={18} /> Phone
               </button>
             </div>
 
-            <form onSubmit={mode === 'signin' ? handleSignIn : handleSignUp} className="space-y-5">
-              {mode === 'signup' && (
-                <div>
-                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Alex Morgan"
-                    className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
-                  />
-                </div>
+            <div className="space-y-5">
+              {mode === 'signin' && (
+                <PhoneOtpLogin
+                  onVerified={() => {
+                    toast.success('Signed in');
+                    navigate('/dashboard');
+                  }}
+                  onCancel={() => setMode('signin')}
+                />
               )}
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Email address</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Phone number</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
-                  />
-                </div>
-              </div>
+              <form
+                onSubmit={mode === 'signin' ? handleSignIn : handleSignUp}
+                className="space-y-5"
+              >
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Alex Morgan"
+                      className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
+                    />
+                  </div>
+                )}
 
-              {mode === 'signup' && (
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Location</label>
+                    <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Email address</label>
                     <input
-                      type="text"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="e.g. Bangalore, India"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
                       className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Role</label>
+                    <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Phone number</label>
                     <input
-                      type="text"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      placeholder="Client, Professional, Recruiter"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
                       className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
-                />
-              </div>
+                {mode === 'signup' && (
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Location</label>
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g. Bangalore, India"
+                        className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Role</label>
+                      <input
+                        type="text"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        placeholder="Client, Professional, Recruiter"
+                        className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <button type="submit" className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200">
-                {mode === 'signin' ? 'Sign in' : 'Create account'}
-              </button>
-            </form>
+                <div>
+                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-2">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
+                  />
+                </div>
+
+                {mode !== 'signin' && (
+                  <button
+                    type="submit"
+                    className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200"
+                  >
+                    Create account
+                  </button>
+                )}
+              </form>
+            </div>
 
             <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-6">
               {mode === 'signin' ? 'New here?' : 'Already have an account?'}{' '}

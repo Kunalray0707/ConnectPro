@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+
+
 import {
   ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon,
   CheckCircle, X, Plus
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+
+
 
 interface TimeSlot {
   id: string;
@@ -22,13 +26,17 @@ interface Appointment {
   status: 'confirmed' | 'pending' | 'cancelled';
 }
 
+export type CalendarTier = 'basic' | 'standard' | 'premium';
+
 interface CalendarProps {
   appointments?: Appointment[];
-  onSlotSelect?: (date: Date, time: string) => void;
-  onAppointmentCreate?: (date: Date, time: string) => void;
+  onSlotSelect?: (payload: { date: Date; time: string; tier: CalendarTier }) => void;
+  onAppointmentCreate?: (payload: { date: Date; time: string; tier: CalendarTier }) => void;
   onAppointmentCancel?: (appointmentId: string) => void;
   isProfessionalView?: boolean;
+  initialTier?: CalendarTier;
 }
+
 
 const Calendar: React.FC<CalendarProps> = ({
   appointments = [],
@@ -41,9 +49,12 @@ const Calendar: React.FC<CalendarProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeSlots, setShowTimeSlots] = useState(false);
+  const [selectedTier] = useState<CalendarTier>('standard');
+
 
   // Generate time slots (9 AM to 6 PM)
   const generateTimeSlots = (): TimeSlot[] => {
+
     const slots: TimeSlot[] = [];
     for (let hour = 9; hour <= 18; hour++) {
       const time24 = `${hour.toString().padStart(2, '0')}:00`;
@@ -78,14 +89,16 @@ const Calendar: React.FC<CalendarProps> = ({
     if (selectedDate) {
       setSelectedTime(time);
       if (onSlotSelect) {
-        onSlotSelect(selectedDate, time);
+        onSlotSelect({ date: selectedDate, time, tier: 'standard' });
+
       }
     }
   };
 
   const handleCreateAppointment = () => {
     if (selectedDate && selectedTime && onAppointmentCreate) {
-      onAppointmentCreate(selectedDate, selectedTime);
+      onAppointmentCreate({ date: selectedDate, time: selectedTime, tier: 'standard' });
+
       setShowTimeSlots(false);
       setSelectedDate(null);
       setSelectedTime(null);

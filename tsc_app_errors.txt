@@ -1,0 +1,19 @@
+src/context/AuthContext.tsx(310,28): error TS2339: Property 'data' does not exist on type '{ user: User | null; session: Session | null; }'.
+src/context/AuthContext.tsx(315,37): error TS2339: Property 'data' does not exist on type '{ user: User | null; session: Session | null; }'.
+src/pages/ProfileDetail.tsx(140,37): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(182,28): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(183,28): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(188,22): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(194,102): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(195,24): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(197,78): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(199,86): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(199,112): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(200,126): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(200,149): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(201,110): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(223,20): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(230,98): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(238,98): error TS18047: 'professional' is possibly 'null'.
+src/pages/ProfileDetail.tsx(333,21): error TS2322: Type '(date: Date, time: string) => void' is not assignable to type '(payload: { date: Date; time: string; tier: CalendarTier; }) => void'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
