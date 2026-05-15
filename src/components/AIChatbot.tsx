@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Cpu, Sparkles } from 'lucide-react';
+import { Send, Cpu } from 'lucide-react';
 
 const suggestedPrompts = [
   'How can I improve my resume for a senior developer role?',
@@ -76,7 +76,7 @@ const AIChatbot: React.FC = () => {
     }, 900);
   };
 
-  const usePrompt = (prompt: string) => {
+  const applyPrompt = (prompt: string) => {
     setInput(prompt);
   };
 
@@ -137,7 +137,7 @@ const AIChatbot: React.FC = () => {
             {suggestedPrompts.map((prompt) => (
               <button
                 key={prompt}
-                onClick={() => usePrompt(prompt)}
+                onClick={() => applyPrompt(prompt)}
                 className="rounded-full bg-white/90 px-3 py-2 text-xs text-[hsl(var(--foreground))] hover:bg-white"
                 type="button"
               >

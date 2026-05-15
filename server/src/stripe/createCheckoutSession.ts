@@ -1,6 +1,5 @@
 import type { Request } from 'express';
 import Stripe from 'stripe';
-import { createConfirmedBookingAfterPayment } from './webhookBooking';
 import { z } from 'zod';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
@@ -17,6 +16,8 @@ const payloadSchema = z.object({
   // Snapshot columns (recommended)
   client_name: z.string().min(1),
   professional_name: z.string().min(1),
+  service_title: z.string().optional(),
+  client_user_id: z.string().optional(),
 });
 
 export async function createCheckoutSession(req: Request) {
@@ -34,7 +35,8 @@ export async function createCheckoutSession(req: Request) {
     currency: parsed.currency,
     client_name: parsed.client_name,
     professional_name: parsed.professional_name,
-    client_user_id: (parsed as any).client_user_id,
+    client_user_id: parsed.client_user_id ?? '',
+    service_title: parsed.service_title ?? 'ConnectPro service',
   };
 
   const amountMinor = parsed.price_amount * 100; // INR in paise
@@ -48,7 +50,7 @@ export async function createCheckoutSession(req: Request) {
         price_data: {
           currency: parsed.currency.toLowerCase(),
           product_data: {
-            name: `ConnectPro appointment`,
+            name: parsed.service_title ?? `ConnectPro — ${parsed.professional_name}`,
           },
           unit_amount: amountMinor,
         },
@@ -56,8 +58,8 @@ export async function createCheckoutSession(req: Request) {
       },
     ],
     metadata,
-    success_url: process.env.STRIPE_SUCCESS_URL ?? 'http://localhost:5174/dashboard',
-    cancel_url: process.env.STRIPE_CANCEL_URL ?? 'http://localhost:5174/dashboard',
+    success_url: process.env.STRIPE_SUCCESS_URL ?? 'http://localhost:5173/dashboard?payment=success',
+    cancel_url: process.env.STRIPE_CANCEL_URL ?? 'http://localhost:5173/marketplace?payment=cancelled',
     // Optionally add automatic tax etc.
   });
 

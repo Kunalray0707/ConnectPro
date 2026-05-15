@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import Stripe from 'stripe';
 
 import { createCheckoutSession } from './stripe/createCheckoutSession';
 import { handleStripeWebhook } from './stripe/handleStripeWebhook';
@@ -31,7 +30,7 @@ app.get('/health', (_req, res) => {
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const session = await createCheckoutSession(req);
-    res.json({ sessionId: session.id });
+    res.json({ sessionId: session.id, url: session.url });
   } catch (err: any) {
     console.error('create-checkout-session error:', err);
     res.status(400).json({ error: err?.message ?? 'Bad request' });

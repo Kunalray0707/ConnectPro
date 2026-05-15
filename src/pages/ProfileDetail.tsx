@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Star, BadgeCheck, Zap, MessageCircle, Video, Calendar as CalendarIcon, Heart, Share2, ArrowLeft, Award, Clock, Globe, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { MapPin, Star, BadgeCheck, Zap, MessageCircle, Video, Calendar as CalendarIcon, Heart, Share2, ArrowLeft, Award, Clock, Globe, X } from 'lucide-react';
+import { format } from 'date-fns';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Calendar from '../components/Calendar';
@@ -113,26 +113,15 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
   const { id } = useParams<{ id: string }>();
   const { profiles, loadProfessionals } = useAuth();
   const [professional, setProfessional] = useState<Professional | null>(fallbackProfessionals[0] ?? null);
-
-  if (!professional) {
-    return (
-      <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading profile...</p>
-      </div>
-    );
-  }
-
   const [saved, setSaved] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState('');
   const [connected, setConnected] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<{ date: string; time: string } | null>(null);
 
   useEffect(() => {
-    loadProfessionals();
-  }, []);
-
+    void loadProfessionals();
+  }, [loadProfessionals]);
 
   useEffect(() => {
     if (profiles.length > 0) {
@@ -143,6 +132,14 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
       setProfessional(fallback);
     }
   }, [id, profiles]);
+
+  if (!professional) {
+    return (
+      <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading profile...</p>
+      </div>
+    );
+  }
 
   const handleConnect = () => {
     if (!professional) return;
@@ -161,11 +158,6 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
       setShowBookingModal(false);
       setBookingDetails(null);
     }
-  };
-
-  const handleBook = () => {
-    if (!selectedSlot) { toast.error('Please select a time slot'); return; }
-    toast.success(`Appointment booked for ${selectedSlot}!`);
   };
 
   return (

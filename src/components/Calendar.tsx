@@ -49,9 +49,6 @@ const Calendar: React.FC<CalendarProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeSlots, setShowTimeSlots] = useState(false);
-  const [selectedTier] = useState<CalendarTier>('standard');
-
-
   // Generate time slots (9 AM to 6 PM)
   const generateTimeSlots = (): TimeSlot[] => {
 

@@ -54,7 +54,6 @@ export function sanitizeInput(input: string): string {
  * Sanitize HTML content while preserving safe tags
  */
 export function sanitizeHtml(input: string): string {
-  const allowedTags = ['p', 'br', 'strong', 'em', 'u', 'a'];
   const div = document.createElement('div');
   div.textContent = input;
   

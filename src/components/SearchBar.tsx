@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SearchBarProps {

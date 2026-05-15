@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -15,7 +15,7 @@ interface LoginProps {
   toggleMobileMode?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => {} }) => {
+const Login: React.FC<LoginProps> = ({ theme, toggleTheme }) => {
   const navigate = useNavigate();
   const { signIn, signUp, socialSignIn } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');

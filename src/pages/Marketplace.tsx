@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Star, BadgeCheck, Filter, X, Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Star, BadgeCheck, Filter, X, Zap, Calendar, Clock } from 'lucide-react';
+import { format, addDays } from 'date-fns';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import PaymentGateway, { type PaymentBookingDetails } from '../components/PaymentGateway';
 import { allSkills } from '../data/professionals';
+import { parsePriceAmount } from '../lib/parsePrice';
 import { toast } from 'react-toastify';
 
 interface MarketplaceProps {
@@ -12,7 +14,22 @@ interface MarketplaceProps {
   toggleTheme: () => void;
 }
 
-const services = [
+type Service = {
+  id: string;
+  title: string;
+  provider: string;
+  category: string;
+  price: string;
+  rating: number;
+  reviews: number;
+  verified: boolean;
+  avatar: string;
+  skills: string[];
+  delivery: string;
+  badge: string | null;
+};
+
+const services: Service[] = [
   { id: 's1', title: 'Math & Science Tutoring', provider: 'Ananya Singh', category: 'Education', price: '₹500/hr', rating: 4.9, reviews: 245, verified: true, avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&h=80&fit=crop&crop=face', skills: ['Mathematics', 'Physics', 'JEE Prep', 'CBSE'], delivery: 'Online / In-person', badge: 'Top Rated' },
   { id: 's2', title: 'Full Stack Web Development', provider: 'Arjun Mehta', category: 'Technology', price: '₹2,500/hr', rating: 4.8, reviews: 189, verified: true, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', skills: ['React', 'Node.js', 'TypeScript', 'AWS'], delivery: 'Remote', badge: 'Expert' },
   { id: 's3', title: 'Cardiology Consultation', provider: 'Dr. Priya Sharma', category: 'Healthcare', price: '₹800/consult', rating: 4.9, reviews: 312, verified: true, avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=80&h=80&fit=crop&crop=face', skills: ['Cardiology', 'ECG', 'Echocardiography'], delivery: 'In-clinic / Video', badge: 'Verified Pro' },
@@ -29,6 +46,8 @@ const services = [
 
 const serviceCategories = ['All', 'Education', 'Healthcare', 'Technology', 'Culinary', 'Creative', 'Business', 'Engineering'];
 
+const TIME_SLOTS = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
 const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -36,6 +55,12 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const [bookingService, setBookingService] = useState<Service | null>(null);
+  const [bookingDate, setBookingDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
+  const [bookingTime, setBookingTime] = useState('10:00');
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentBooking, setPaymentBooking] = useState<PaymentBookingDetails | null>(null);
 
   const filteredSkills = useMemo(() =>
     skillSearch.length > 1 ? allSkills.filter(s => s.toLowerCase().includes(skillSearch.toLowerCase())).slice(0, 10) : [],
@@ -56,8 +81,43 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
     setSkillSearch('');
   };
 
+  const openBooking = (service: Service) => {
+    setBookingService(service);
+    setBookingDate(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
+    setBookingTime('10:00');
+    setShowPayment(false);
+    setPaymentBooking(null);
+  };
+
+  const closeBooking = () => {
+    setBookingService(null);
+    setShowPayment(false);
+    setPaymentBooking(null);
+  };
+
+  const confirmBooking = () => {
+    if (!bookingService) return;
+    const details: PaymentBookingDetails = {
+      serviceId: bookingService.id,
+      serviceTitle: bookingService.title,
+      provider: bookingService.provider,
+      priceLabel: bookingService.price,
+      priceAmount: parsePriceAmount(bookingService.price),
+      date: bookingDate,
+      time: bookingTime,
+    };
+    setPaymentBooking(details);
+    setShowPayment(true);
+    toast.info('Proceed to payment to confirm your booking.');
+  };
+
+  const handlePaymentComplete = () => {
+    closeBooking();
+    toast.success('Booking confirmed! View it in your Dashboard.');
+  };
+
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))]">
+    <motion.div className="min-h-screen bg-[hsl(var(--background))]">
       <Header theme={theme} toggleTheme={toggleTheme} />
 
       <div className="pt-16">
@@ -79,6 +139,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
                 />
               </div>
               <button
+                type="button"
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all duration-200"
               >
@@ -93,6 +154,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
             {serviceCategories.map(cat => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => setSelectedCategory(cat)}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedCategory === cat
@@ -117,7 +179,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
                   <span className="text-sm text-[hsl(var(--foreground))]">Verified Providers Only</span>
                 </label>
                 <div className="flex-1">
-                  <div className="relative">
+                  <motion.div className="relative">
                     <input
                       type="text"
                       placeholder="Filter by skill (100+ available)..."
@@ -128,19 +190,19 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
                     {filteredSkills.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl shadow-lg z-20 p-2 flex flex-wrap gap-1.5">
                         {filteredSkills.map(skill => (
-                          <button key={skill} onClick={() => toggleSkill(skill)} className="px-3 py-1 rounded-full text-xs bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--cp-indigo))]/20 hover:text-[hsl(var(--cp-indigo))] transition-all duration-150">
+                          <button key={skill} type="button" onClick={() => toggleSkill(skill)} className="px-3 py-1 rounded-full text-xs bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--cp-indigo))]/20 hover:text-[hsl(var(--cp-indigo))] transition-all duration-150">
                             {skill}
                           </button>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                   {selectedSkills.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {selectedSkills.map(skill => (
                         <span key={skill} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-[hsl(var(--cp-indigo))]/15 text-[hsl(var(--cp-indigo))] border border-[hsl(var(--cp-indigo))]/30">
                           {skill}
-                          <button onClick={() => toggleSkill(skill)}><X className="w-3 h-3" /></button>
+                          <button type="button" onClick={() => toggleSkill(skill)}><X className="w-3 h-3" /></button>
                         </span>
                       ))}
                     </div>
@@ -204,7 +266,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
                 <div className="flex items-center justify-between pt-3 border-t border-[hsl(var(--border))]">
                   <span className="font-heading font-bold text-[hsl(var(--foreground))]">{service.price}</span>
                   <button
-                    onClick={() => toast.success(`Booking ${service.title} with ${service.provider}!`)}
+                    type="button"
+                    onClick={() => openBooking(service)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white text-xs font-semibold hover:scale-105 hover:shadow-md transition-all duration-200"
                   >
                     <Zap className="w-3.5 h-3.5" /> Book Now
@@ -225,7 +288,107 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
       </div>
 
       <Footer />
-    </div>
+
+      <AnimatePresence>
+        {bookingService && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={e => { if (e.target === e.currentTarget && !showPayment) closeBooking(); }}
+          >
+            {!showPayment ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <motion.div className="flex items-center justify-between mb-5">
+                  <h3 className="font-heading text-lg font-semibold text-[hsl(var(--foreground))]">Book service</h3>
+                  <button type="button" onClick={closeBooking} className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))]">
+                    <X className="w-5 h-5" />
+                  </button>
+                </motion.div>
+
+                <div className="flex items-center gap-3 mb-5 pb-5 border-b border-[hsl(var(--border))]">
+                  <img src={bookingService.avatar} alt={bookingService.provider} className="w-12 h-12 rounded-xl object-cover" />
+                  <div>
+                    <p className="font-medium text-[hsl(var(--foreground))]">{bookingService.title}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">{bookingService.provider} · {bookingService.price}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-medium text-[hsl(var(--foreground))] mb-2">
+                      <Calendar className="w-4 h-4 text-[hsl(var(--cp-indigo))]" /> Date
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingDate}
+                      min={format(new Date(), 'yyyy-MM-dd')}
+                      onChange={e => setBookingDate(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-indigo))]/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-medium text-[hsl(var(--foreground))] mb-2">
+                      <Clock className="w-4 h-4 text-[hsl(var(--cp-indigo))]" /> Time
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {TIME_SLOTS.map(slot => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setBookingTime(slot)}
+                          className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                            bookingTime === slot
+                              ? 'bg-[hsl(var(--cp-indigo))] text-white'
+                              : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--cp-indigo))]/20'
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={closeBooking}
+                    className="flex-1 py-2.5 rounded-xl border border-[hsl(var(--border))] text-sm font-medium hover:bg-[hsl(var(--muted))] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmBooking}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Continue to payment
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <div onClick={e => e.stopPropagation()}>
+                <PaymentGateway
+                  serviceTitle={paymentBooking?.serviceTitle ?? bookingService.title}
+                  amount={paymentBooking?.priceLabel ?? bookingService.price}
+                  booking={paymentBooking ?? undefined}
+                  onComplete={handlePaymentComplete}
+                  onCancel={() => setShowPayment(false)}
+                />
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

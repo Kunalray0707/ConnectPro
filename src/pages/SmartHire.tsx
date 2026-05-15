@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { ArrowUpRight, BadgeCheck, Briefcase, Globe, Mail, ShieldCheck, Sparkles, Star, Upload } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, ShieldCheck, Sparkles, Upload } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface JobListing {
@@ -112,7 +111,7 @@ const SmartHire: React.FC<{ theme: 'light' | 'dark'; toggleTheme: () => void; mo
   const [previewResume, setPreviewResume] = useState('');
   const [uploadedText, setUploadedText] = useState('');
   const [jobFilter, setJobFilter] = useState('All');
-  const [selectedJob, setSelectedJob] = useState<JobListing | null>(jobListings[0]);
+  const [selectedJob] = useState<JobListing | null>(jobListings[0]);
 
   useEffect(() => {
     const savedCandidates = JSON.parse(localStorage.getItem('smartHireCandidates') || '[]');

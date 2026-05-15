@@ -3,6 +3,14 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4242',
+        changeOrigin: true,
+      },
+    },
+  },
   esbuild: {
     logOverride: {
       'ignored-directive': 'silent', 

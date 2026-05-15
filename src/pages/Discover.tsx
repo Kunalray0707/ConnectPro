@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MapPin, SlidersHorizontal, X, Locate } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Locate } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProfessionalCard from '../components/ProfessionalCard';

@@ -1,13 +1,9 @@
 import type { Request } from 'express';
 import Stripe from 'stripe';
 import { createConfirmedBookingAfterPayment } from './webhookBooking';
-import { z } from 'zod';
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
   apiVersion: '2023-10-16',
 });
-
-const webhookBodySchema = z.any();
 
 export async function handleStripeWebhook(req: Request) {
   const signature = req.headers['stripe-signature'];

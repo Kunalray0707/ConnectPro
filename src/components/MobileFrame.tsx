@@ -6,7 +6,7 @@ interface MobileFrameProps {
   theme: 'light' | 'dark';
 }
 
-const MobileFrame: React.FC<MobileFrameProps> = ({ children, theme }) => {
+const MobileFrame: React.FC<MobileFrameProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center py-8 px-4">
       <motion.div

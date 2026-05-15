@@ -76,7 +76,7 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [receipt, setReceipt] = useState<'sent' | 'delivered' | 'read'>('read');
+  const [, setReceipt] = useState<'sent' | 'delivered' | 'read'>('read');
 
   const onlineState = professional.available ? 'Online now' : 'Offline - response may be delayed';
 
