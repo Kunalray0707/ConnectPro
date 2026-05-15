@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, CreditCard, Link2, Eye, BadgeCheck, ChevronRight, Camera, Save, LogOut } from 'lucide-react';
+import { User, Bell, CreditCard, Link2, Eye, BadgeCheck, ChevronRight, Camera, Save, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -10,6 +10,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
+import VerificationWizard from '../components/VerificationWizard';
+import { DOCUMENT_META, getRequestForUser, type DocumentType } from '../lib/verification';
 
 interface SettingsProps {
   theme: 'light' | 'dark';
@@ -60,6 +62,8 @@ const settingsTabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] 
 const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => {} }) => {
   const { currentUser, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyKey, setVerifyKey] = useState(0);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   const [savedProfile, setSavedProfile] = useState<ProfileFormData | null>(null);
@@ -533,18 +537,20 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                   <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-8">
                     <h2 className="font-heading text-lg font-semibold text-[hsl(var(--foreground))] mb-6">Verification Status</h2>
                     <div className="space-y-4">
-                      {[
-                        { label: 'Identity (Aadhaar/Passport)', status: 'verified', desc: 'Verified on Jan 5, 2026' },
-                        { label: 'Professional Degree', status: 'verified', desc: 'B.Tech Computer Science' },
-                        { label: 'Work Experience', status: 'pending', desc: 'Under review — submitted Jan 10' },
-                        { label: 'Certifications', status: 'not_submitted', desc: 'Upload your certificates' },
-                      ].map((item) => (
+                      {(Object.keys(DOCUMENT_META) as DocumentType[]).map(type => {
+                        const req = currentUser
+                          ? getRequestForUser(currentUser.id, 'p-self')
+                          : null;
+                        const doc = req?.documents.find(d => d.type === type);
+                        const status = doc?.status ?? 'not_submitted';
+                        return { label: DOCUMENT_META[type].label, status, desc: doc?.fileName ?? DOCUMENT_META[type].description };
+                      }).map((item) => (
                         <div key={item.label} className="flex items-center justify-between p-4 border border-[hsl(var(--border))] rounded-xl">
                           <div className="flex items-center gap-3">
                             <BadgeCheck
                               size={20}
                               className={
-                                item.status === 'verified'
+                                item.status === 'approved'
                                   ? 'text-[hsl(var(--cp-blue))]'
                                   : item.status === 'pending'
                                     ? 'text-amber-500'
@@ -558,19 +564,19 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                           </div>
                           <span
                             className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                              item.status === 'verified'
+                              item.status === 'approved'
                                 ? 'bg-emerald-500/10 text-emerald-600'
                                 : item.status === 'pending'
                                   ? 'bg-amber-500/10 text-amber-600'
                                   : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
                             }`}
                           >
-                            {item.status === 'verified' ? 'Verified' : item.status === 'pending' ? 'Pending' : 'Upload'}
+                            {item.status === 'approved' ? 'Verified' : item.status === 'pending' ? 'Pending' : 'Upload'}
                           </span>
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => toast.info('Document upload coming soon!')} className="mt-6 flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200" type="button">
+                    <button onClick={() => setVerifyOpen(true)} className="mt-6 flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200" type="button">
                       Upload Documents
                     </button>
                   </div>
@@ -582,6 +588,16 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
       </main>
 
       <Footer />
+
+      <VerificationWizard
+        key={verifyKey}
+        isOpen={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        onComplete={() => { setVerifyKey(k => k + 1); setVerifyOpen(false); }}
+        userId={currentUser?.id ?? 'guest-user'}
+        userName={currentUser?.name ?? 'Your Profile'}
+        professionalId="p-self"
+      />
     </div>
   );
 };

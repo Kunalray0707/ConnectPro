@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Star, BadgeCheck, Zap } from 'lucide-react';
+import { getProfessionalVerification, isPubliclyVerified } from '../lib/verification';
+import { getProfessionalRatingStats } from '../lib/ratings';
 
 export interface Professional {
   id: string;
@@ -36,6 +38,11 @@ const categoryColors: Record<string, string> = {
 };
 
 const ProfessionalCard: React.FC<ProfessionalCardProps> = ({ professional, index = 0 }) => {
+  const verification = getProfessionalVerification(professional.id);
+  const ratingStats = getProfessionalRatingStats(professional.id, professional.rating, professional.reviews);
+  const verified = isPubliclyVerified(professional.id, professional.verified);
+  const displayRating = ratingStats.verifiedReviewCount ? ratingStats.averageRating : professional.rating;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -62,8 +69,8 @@ className="w-[52px] h-[52px] rounded-xl object-cover"
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="font-semibold text-[hsl(var(--foreground))] text-sm leading-tight">{professional.name}</h3>
-              {professional.verified && (
-                <BadgeCheck className="w-4 h-4 text-[hsl(var(--cp-indigo))] flex-shrink-0" />
+              {verified && (
+                <BadgeCheck className="w-4 h-4 text-[hsl(var(--cp-indigo))] flex-shrink-0" title="Verified professional" />
               )}
             </div>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{professional.role}</p>
@@ -86,7 +93,7 @@ className="w-[52px] h-[52px] rounded-xl object-cover"
         </div>
         <div className="flex items-center gap-1 text-xs">
           <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span className="font-medium text-[hsl(var(--foreground))]">{professional.rating}</span>
+          <span className="font-medium text-[hsl(var(--foreground))]">{displayRating}</span>
           <span className="text-[hsl(var(--muted-foreground))]">({professional.reviews})</span>
         </div>
       </div>

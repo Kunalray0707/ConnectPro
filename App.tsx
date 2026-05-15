@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './styles.css';
 import SplashScreen from './src/components/SplashScreen';
+import { AuthProvider } from './src/context/AuthContext';
 
 const Home = lazy(() => import('./src/pages/Home'));
 const Discover = lazy(() => import('./src/pages/Discover'));
@@ -14,6 +15,7 @@ const Dashboard = lazy(() => import('./src/pages/Dashboard'));
 const About = lazy(() => import('./src/pages/About'));
 const Profile = lazy(() => import('./src/pages/Profile'));
 const NotFound = lazy(() => import('./src/pages/NotFound'));
+const Admin = lazy(() => import('./src/pages/Admin'));
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
@@ -37,30 +39,33 @@ const App: React.FC = () => {
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   return (
-    <Theme appearance={theme} radius="large" scaling="100%">
-      {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
-      <Router>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Home theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/discover" element={<Discover theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/marketplace" element={<Marketplace theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/dashboard" element={<Dashboard theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/profile/:id" element={<Profile theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          newestOnTop
-          closeOnClick
-          pauseOnHover
-          theme={theme}
-        />
-      </Router>
-    </Theme>
+    <AuthProvider>
+      <Theme appearance={theme} radius="large" scaling="100%">
+        {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+        <Router>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/discover" element={<Discover theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/marketplace" element={<Marketplace theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/dashboard" element={<Dashboard theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/profile/:id" element={<Profile theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/admin" element={<Admin theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            newestOnTop
+            closeOnClick
+            pauseOnHover
+            theme={theme}
+          />
+        </Router>
+      </Theme>
+    </AuthProvider>
   );
 };
 

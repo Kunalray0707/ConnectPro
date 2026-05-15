@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Star, BadgeCheck, MessageCircle, Calendar, Share2, Heart, Award, Briefcase, GraduationCap, Clock, ChevronLeft } from 'lucide-react';
+import { MapPin, Star, BadgeCheck, MessageCircle, Calendar, Share2, Heart, Award, Briefcase, GraduationCap, Clock, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import BookingPaymentModal from '../components/BookingPaymentModal';
+import SubmitReviewModal from '../components/SubmitReviewModal';
+import VerificationBadges from '../components/VerificationBadges';
 import { professionals } from '../data/professionals';
 import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
+import { getProfessionalVerification, isPubliclyVerified } from '../lib/verification';
+import {
+  getProfessionalRatingStats,
+  getReviewsForProfessional,
+  getEligibleBookingsForReview,
+  RATING_TIER_META,
+} from '../lib/ratings';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -14,10 +25,29 @@ interface ProfileProps {
 
 const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
   const { id } = useParams<{ id: string }>();
+  const { currentUser } = useAuth();
   const professional = professionals.find(p => p.id === id);
   const [connected, setConnected] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'reviews' | 'portfolio'>('overview');
+  const [reviewVersion, setReviewVersion] = useState(0);
+
+  const verification = professional ? getProfessionalVerification(professional.id) : null;
+  const ratingStats = useMemo(
+    () => professional ? getProfessionalRatingStats(professional.id, professional.rating, professional.reviews) : null,
+    [professional, reviewVersion],
+  );
+  const verifiedReviews = useMemo(
+    () => (professional ? getReviewsForProfessional(professional.id) : []),
+    [professional, reviewVersion],
+  );
+  const reviewerId = currentUser?.id ?? 'guest-user';
+  const eligibleBookings = professional
+    ? getEligibleBookingsForReview(reviewerId, professional.id)
+    : [];
+  const showVerifiedBadge = professional ? isPubliclyVerified(professional.id, professional.verified) : false;
 
   if (!professional) {
     return (
@@ -40,15 +70,12 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
     toast.info(saved ? 'Removed from saved' : 'Saved to your list');
   };
 
-  const handleBook = () => {
-    toast.success('Appointment booking opened!');
-  };
+  const handleBook = () => setBookingOpen(true);
 
-  const reviews = [
-    { name: 'Anonymous Client', rating: 5, date: '2 weeks ago', text: `${professional.name} is absolutely exceptional. Highly professional and knowledgeable.` },
-    { name: 'Sneha Patel', rating: 5, date: '1 month ago', text: 'Outstanding service. Would definitely recommend to anyone looking for this expertise.' },
-    { name: 'Amit Verma', rating: 4, date: '2 months ago', text: 'Very good experience overall. Punctual and thorough in their approach.' },
-  ];
+  const displayRating = ratingStats?.verifiedReviewCount
+    ? ratingStats.averageRating
+    : professional.rating;
+  const displayReviewCount = ratingStats?.verifiedReviewCount || professional.reviews;
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
@@ -88,20 +115,32 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="font-heading text-2xl font-bold text-[hsl(var(--foreground))]">{professional.name}</h1>
-                    {professional.verified && <BadgeCheck className="w-5 h-5 text-[hsl(var(--cp-indigo))]" />}
+                    {showVerifiedBadge && <BadgeCheck className="w-5 h-5 text-[hsl(var(--cp-indigo))]" />}
                     <span className="text-xs font-bold text-[hsl(var(--cp-indigo))] bg-[hsl(var(--cp-indigo))]/10 px-2.5 py-1 rounded-full">
                       {professional.matchScore}% match
                     </span>
                   </div>
                   <p className="text-[hsl(var(--muted-foreground))] mt-1">{professional.role} · {professional.category}</p>
+                  <VerificationBadges
+                    verification={verification}
+                    ratingTier={ratingStats?.tier}
+                    showRatingTier
+                  />
                   <div className="flex items-center gap-4 mt-2 flex-wrap">
                     <span className="flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))]">
                       <MapPin className="w-4 h-4" /> {professional.location} · {professional.distance}
                     </span>
                     <span className="flex items-center gap-1 text-sm">
                       <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                      <span className="font-medium text-[hsl(var(--foreground))]">{professional.rating}</span>
-                      <span className="text-[hsl(var(--muted-foreground))]">({professional.reviews} reviews)</span>
+                      <span className="font-medium text-[hsl(var(--foreground))]">{displayRating}</span>
+                      <span className="text-[hsl(var(--muted-foreground))]">
+                        ({displayReviewCount} verified {displayReviewCount === 1 ? 'review' : 'reviews'})
+                      </span>
+                      {ratingStats && ratingStats.tier !== 'new' && (
+                        <span className={`text-xs font-semibold ${RATING_TIER_META[ratingStats.tier].color}`}>
+                          · {RATING_TIER_META[ratingStats.tier].label}
+                        </span>
+                      )}
                     </span>
                     <span className="flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))]">
                       <Clock className="w-4 h-4" /> {professional.experience}
@@ -170,7 +209,7 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
                   <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6">
                     <h2 className="font-heading font-semibold text-[hsl(var(--foreground))] mb-3">About</h2>
                     <p className="text-[hsl(var(--muted-foreground))] leading-relaxed text-sm">
-                      {professional.name} is a highly experienced {professional.role} with {professional.experience} in the {professional.category} industry. Known for exceptional quality of work and professional conduct, they have built a strong reputation with {professional.reviews} verified reviews and a {professional.rating}/5 rating.
+                      {professional.name} is a highly experienced {professional.role} with {professional.experience} in the {professional.category} industry. Public ratings count only verified purchases — {displayReviewCount} verified reviews, {displayRating}/5 average.
                     </p>
                   </div>
 
@@ -211,7 +250,7 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
                     <h3 className="font-semibold text-sm text-[hsl(var(--foreground))] mb-4">Quick Info</h3>
                     <div className="space-y-3">
                       {[
-                        { icon: Award, label: 'Verified Pro', value: professional.verified ? 'Yes' : 'No' },
+                        { icon: Award, label: 'Verified Pro', value: showVerifiedBadge ? (verification?.badgeLevel ?? 'Yes') : 'No' },
                         { icon: Star, label: 'Rating', value: `${professional.rating}/5` },
                         { icon: Clock, label: 'Experience', value: professional.experience },
                         { icon: MapPin, label: 'Location', value: professional.location },
@@ -245,9 +284,21 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
 
             {activeTab === 'reviews' && (
               <div className="space-y-4 max-w-2xl">
-                {reviews.map((r, i) => (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    Only verified purchase reviews are shown.
+                  </p>
+                  <button type="button" onClick={() => setReviewOpen(true)} className="px-4 py-2 rounded-xl border border-[hsl(var(--cp-indigo))]/40 text-[hsl(var(--cp-indigo))] text-sm font-medium">
+                    Write verified review
+                  </button>
+                </div>
+                {verifiedReviews.length === 0 && (
+                  <p className="text-sm text-center text-[hsl(var(--muted-foreground))] py-6">No verified reviews yet.</p>
+                )}
+                {verifiedReviews.map((r, i) => (
                   <motion.div
-                    key={i}
+                    key={r.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
@@ -255,8 +306,8 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <p className="font-medium text-sm text-[hsl(var(--foreground))]">{r.name}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{r.date}</p>
+                        <p className="font-medium text-sm text-[hsl(var(--foreground))]">{r.reviewerName}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{new Date(r.createdAt).toLocaleDateString()} · Verified purchase</p>
                       </div>
                       <div className="flex gap-0.5">
                         {Array.from({ length: r.rating }).map((_, j) => (
@@ -288,6 +339,29 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
       </div>
 
       <Footer />
+
+      <BookingPaymentModal
+        open={bookingOpen}
+        target={{
+          id: professional.id,
+          title: `${professional.role} session`,
+          provider: professional.name,
+          price: professional.rate ?? '₹999/hr',
+          avatar: professional.avatar,
+        }}
+        onClose={() => setBookingOpen(false)}
+      />
+
+      <SubmitReviewModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        professionalId={professional.id}
+        professionalName={professional.name}
+        reviewerId={reviewerId}
+        reviewerName={currentUser?.name ?? 'Guest'}
+        eligibleBookings={eligibleBookings}
+        onSubmitted={() => setReviewVersion(v => v + 1)}
+      />
     </div>
   );
 };

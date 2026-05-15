@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Briefcase, MessageCircle, Star, TrendingUp, Bell, Settings, LogOut, BadgeCheck, Calendar, Zap, Eye, Heart, Award, ChevronRight, Activity } from 'lucide-react';
+import { Users, Briefcase, MessageCircle, Star, TrendingUp, Bell, Settings, BadgeCheck, Calendar, Zap, Eye, Award, ChevronRight, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { professionals } from '../data/professionals';
 import { toast } from 'react-toastify';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { loadLocalBookings, type LocalBooking } from '../lib/localBookings';
+import VerificationWizard from '../components/VerificationWizard';
 
 interface DashboardProps {
   theme: 'light' | 'dark';
@@ -35,18 +37,37 @@ const recentConnections = professionals.slice(0, 4);
 const tabs = ['Overview', 'Connections', 'Messages', 'Bookings', 'Analytics'];
 
 const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
-  const { currentUser, isAuthenticated, signOut } = useAuth();
+  const { currentUser, loading } = useAuth();
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Overview');
+  const [localBookings, setLocalBookings] = useState<LocalBooking[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(72);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unread] = useState(notifications.filter(n => !n.read).length);
   const [onlineStatus, setOnlineStatus] = useState(true);
 
   useEffect(() => {
+    setLocalBookings(loadLocalBookings());
     const interval = setInterval(() => {
       setProfileCompletion(prev => Math.min(prev + 1, 100));
     }, 3000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'Bookings') {
+      setLocalBookings(loadLocalBookings());
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      toast.success('Payment successful! Your booking is confirmed.');
+      setLocalBookings(loadLocalBookings());
+      setActiveTab('Bookings');
+      window.history.replaceState({}, '', '/dashboard');
+    }
   }, []);
 
   const stats = [
@@ -55,6 +76,14 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
     { icon: MessageCircle, label: 'Messages', value: '89', change: '+5%', positive: true },
     { icon: Star, label: 'Avg Rating', value: '4.8', change: '+0.2', positive: true },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-[hsl(var(--cp-indigo))]/30 border-t-[hsl(var(--cp-indigo))] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
@@ -294,7 +323,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     { icon: Users, label: 'Find Matches', action: () => toast.info('Opening discover...'), color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/20' },
                     { icon: Briefcase, label: 'Post Service', action: () => toast.success('Service posting opened!'), color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/20' },
                     { icon: Calendar, label: 'Book Slot', action: () => toast.info('Calendar opened!'), color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' },
-                    { icon: Award, label: 'Get Verified', action: () => toast.info('Verification process started!'), color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
+                    { icon: Award, label: 'Get Verified', action: () => setVerifyOpen(true), color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
                   ].map(({ icon: Icon, label, action, color }) => (
                     <button
                       key={label}
@@ -415,6 +444,41 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
           {/* Bookings Tab */}
           {activeTab === 'Bookings' && (
             <div className="space-y-4">
+              {localBookings.length > 0 && (
+                <>
+                  <h2 className="font-heading text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
+                    Your marketplace bookings
+                  </h2>
+                  {localBookings.map((bk, i) => (
+                    <motion.div
+                      key={bk.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                      className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-[hsl(var(--foreground))]">{bk.serviceTitle}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{bk.provider} · {bk.priceLabel}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                          <Calendar className="w-3.5 h-3.5 inline mr-1" />
+                          {bk.date} at {bk.time}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                        bk.status === 'paid'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                      }`}>
+                        {bk.status === 'paid' ? 'Paid' : 'Pending payment'}
+                      </span>
+                    </motion.div>
+                  ))}
+                </>
+              )}
+              <h2 className="font-heading text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide pt-2">
+                Sample appointments
+              </h2>
               {professionals.slice(0, 4).map((p, i) => (
                 <motion.div
                   key={p.id}
@@ -491,6 +555,15 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
           )}
         </main>
       </div>
+
+      <VerificationWizard
+        isOpen={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        onComplete={() => setVerifyOpen(false)}
+        userId={currentUser?.id ?? 'guest-user'}
+        userName={currentUser?.name ?? 'Your Profile'}
+        professionalId="p-self"
+      />
     </div>
   );
 };

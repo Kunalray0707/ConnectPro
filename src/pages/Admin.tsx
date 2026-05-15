@@ -7,8 +7,6 @@ import {
   BarChart3,
   UserCheck,
   UserX,
-  Eye,
-  Ban,
   CheckCircle,
   XCircle,
   TrendingUp,
@@ -20,6 +18,13 @@ import {
 import { toast } from 'react-toastify';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import {
+  getAllRequests,
+  adminReviewRequest,
+  DOCUMENT_META,
+  type VerificationRequest,
+  type DocumentType,
+} from '../lib/verification';
 
 interface AdminProps {
   theme: 'light' | 'dark';
@@ -34,12 +39,6 @@ const mockUsers = [
   { id: '2', name: 'Jane Smith', email: 'jane@example.com', role: 'Client', status: 'active', verified: false, joinDate: '2024-02-20' },
   { id: '3', name: 'Bob Johnson', email: 'bob@example.com', role: 'Professional', status: 'suspended', verified: true, joinDate: '2024-01-10' },
   { id: '4', name: 'Alice Brown', email: 'alice@example.com', role: 'Client', status: 'active', verified: true, joinDate: '2024-03-05' },
-];
-
-const mockVerifications = [
-  { id: '1', userId: '2', userName: 'Jane Smith', type: 'ID Verification', submittedDate: '2024-03-10', status: 'pending' },
-  { id: '2', userId: '5', userName: 'Mike Wilson', type: 'Degree Verification', submittedDate: '2024-03-08', status: 'pending' },
-  { id: '3', userId: '6', userName: 'Sarah Davis', type: 'Certificate Verification', submittedDate: '2024-03-05', status: 'pending' },
 ];
 
 const mockReports = [
@@ -110,7 +109,7 @@ const mockAnalytics = {
 const Admin: React.FC<AdminProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => {} }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'verifications' | 'reports' | 'smarthire' | 'analytics' | 'integrations' | 'requests'>('users');
   const [users, setUsers] = useState(mockUsers);
-  const [verifications, setVerifications] = useState(mockVerifications);
+  const [verifications, setVerifications] = useState<VerificationRequest[]>([]);
   const [reports, setReports] = useState(mockReports);
   const [matchRequests, setMatchRequests] = useState<MatchRequestItem[]>([]);
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequestItem[]>([]);
@@ -131,13 +130,14 @@ const Admin: React.FC<AdminProps> = ({ theme, toggleTheme, mobileMode = false, t
     }));
   };
 
+  const refreshVerifications = () => setVerifications(getAllRequests());
+
   const handleVerificationAction = (verificationId: string, action: 'approve' | 'reject') => {
-    setVerifications(verifications.map(v => {
-      if (v.id === verificationId) {
-        return { ...v, status: action === 'approve' ? 'approved' : 'rejected' };
-      }
-      return v;
-    }));
+    const result = adminReviewRequest(verificationId, action, undefined, action === 'reject' ? 'Rejected by admin' : undefined);
+    if (result) {
+      toast.success(action === 'approve' ? 'Verification approved — badge is now public' : 'Verification rejected');
+      refreshVerifications();
+    }
   };
 
   const handleReportAction = (reportId: string, action: 'resolve' | 'dismiss') => {
@@ -162,6 +162,7 @@ const Admin: React.FC<AdminProps> = ({ theme, toggleTheme, mobileMode = false, t
   };
 
   useEffect(() => {
+    refreshVerifications();
     const storedMatches = JSON.parse(localStorage.getItem('pendingMatchRequests') || '[]');
     const storedAppointments = JSON.parse(localStorage.getItem('pendingAppointmentRequests') || '[]');
     const storedSmartHire = JSON.parse(localStorage.getItem('smartHireCandidates') || '[]');
@@ -338,23 +339,29 @@ const Admin: React.FC<AdminProps> = ({ theme, toggleTheme, mobileMode = false, t
                     <div key={verification.id} className="flex items-center justify-between p-4 bg-[hsl(var(--muted))]/40 rounded-lg">
                       <div>
                         <p className="font-medium text-[hsl(var(--foreground))]">{verification.userName}</p>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{verification.type}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">Submitted: {verification.submittedDate}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Pro: {verification.professionalId}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                          Status: {verification.status} · {verification.submittedAt ? new Date(verification.submittedAt).toLocaleDateString() : 'draft'}
+                        </p>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleVerificationAction(verification.id, 'approve')}
-                          className="px-3 py-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30 text-sm font-medium transition-colors"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleVerificationAction(verification.id, 'reject')}
-                          className="px-3 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 text-sm font-medium transition-colors"
-                        >
-                          Reject
-                        </button>
-                      </div>
+                      {verification.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleVerificationAction(verification.id, 'approve')}
+                            className="px-3 py-1 rounded-lg bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-sm font-medium"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVerificationAction(verification.id, 'reject')}
+                            className="px-3 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 text-sm font-medium"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
