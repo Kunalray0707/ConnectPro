@@ -44,27 +44,61 @@ const professionNotes: Record<string, { personality: string; tone: string; helpf
   },
 };
 
-const getProfileReply = (professional: Professional, message: string) => {
-  const keywords = message.toLowerCase();
+function makeShortAiReply(professional: Professional, userMessage: string, contextSize: number): string {
   const profile = professionNotes[professional.category] || professionNotes.Technology;
+  const m = userMessage.toLowerCase();
 
-  if (keywords.includes('book') || keywords.includes('appointment') || keywords.includes('schedule')) {
-    return `Hi! ${professional.name} is available for a ${professional.role.toLowerCase()} session. Please share your preferred time slot and I will confirm availability.`;
+  const hasBookingIntent = /(book|appointment|schedule|slot|timing|available)/.test(m);
+  const hasPriceIntent = /(price|cost|fee|rate|how much|pricing)/.test(m);
+  const hasExperienceIntent = /(experience|background|work|years|portfolio|track record)/.test(m);
+  const hasReviewIntent = /(review|feedback|testimonial|rating|people|clients)/.test(m);
+  const hasSkillsIntent = /(skill|skills|expert|expertise|what can you do)/.test(m);
+
+  const seed = (userMessage.length + contextSize + professional.name.length) % 7;
+  const askVariants = [
+    'Which option works best for you?',
+    'Do you prefer online or in-person?',
+    'What timeline are you aiming for?',
+    'What is your main goal?',
+    'Can you share one detail so I can tailor the plan?',
+    'Would you like a quick first step or a detailed roadmap?',
+    'What outcome would make this successful?',
+  ];
+
+  const ask = askVariants[seed];
+
+  if (hasBookingIntent) {
+    const slotSuggestion = seed % 2 === 0 ? 'tomorrow morning' : 'this evening';
+    return `Happy to help, ${professional.name}! For your ${professional.role.toLowerCase()} session, share 1–2 preferred slots (e.g., ${slotSuggestion}). ${ask}`;
   }
 
-  if (keywords.includes('price') || keywords.includes('cost') || keywords.includes('fee')) {
-    return `The standard rate is ${professional.hourlyRate || 'custom pricing'}. I can also help you choose the best package based on your needs.`;
+  if (hasPriceIntent) {
+    const rate = professional.hourlyRate || 'custom pricing';
+    return `For ${professional.role.toLowerCase()}, the standard rate is ${rate}. If you tell me your requirement, I’ll suggest the best fit. ${ask}`;
   }
 
-  if (keywords.includes('experience') || keywords.includes('background')) {
-    return `${professional.name} has a strong track record in ${professional.skills.slice(0, 3).join(', ')}. ${profile.helpful}`;
+  if (hasExperienceIntent) {
+    const topSkills = professional.skills.slice(0, 3).join(', ');
+    return `${professional.name} has strong experience in ${topSkills}. I’ll guide you with clear, ${profile.tone} next steps. ${ask}`;
   }
 
-  if (keywords.includes('review') || keywords.includes('feedback')) {
-    return `Clients love working with ${professional.name} because of their ${profile.personality} approach and reliable delivery. Ask for one specific example and I will share it.`;
+  if (hasReviewIntent) {
+    const topSkills = professional.skills.slice(0, 2).join(' & ');
+    return `Clients value ${professional.name} for a ${profile.tone} approach and reliable delivery. Tell me what you’re looking for, and I’ll share a relevant example. ${ask}`;
   }
 
-  return `I specialize in ${professional.skills.slice(0, 3).join(', ')}. ${profile.helpful} Feel free to tell me what outcome you want and I will respond with personalized next steps.`;
+  if (hasSkillsIntent) {
+    const topSkills = professional.skills.slice(0, 3).join(', ');
+    return `I specialize in ${topSkills} (${professional.category}). Share your goal and I’ll recommend the quickest path forward. ${ask}`;
+  }
+
+  // Default: short category-based opener + question
+  return `${profile.helpful} To help faster: ${ask}`;
+}
+
+const getProfileReply = (professional: Professional, message: string) => {
+  // Keep backward compatibility with demo-only call sites.
+  return makeShortAiReply(professional, message, 1);
 };
 
 function chatRoomKey(userId: string, professionalId: string) {

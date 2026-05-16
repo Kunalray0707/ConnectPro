@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Twitter, Linkedin, Github, Instagram, Mail } from 'lucide-react';
+import { Zap, Linkedin, Github, Instagram, Mail } from 'lucide-react';
+
 
 const Footer: React.FC = () => {
   return (
@@ -21,20 +22,39 @@ const Footer: React.FC = () => {
             </p>
             <div className="flex items-center gap-3 mt-6">
               {[
-                { icon: Twitter, label: 'Twitter' },
-                { icon: Linkedin, label: 'LinkedIn' },
-                { icon: Github, label: 'GitHub' },
-                { icon: Instagram, label: 'Instagram' },
-                { icon: Mail, label: 'Email' },
-              ].map(({ icon: Icon, label }) => (
-                <button
+                {
+                  icon: Github,
+                  label: 'GitHub',
+                  href: 'https://github.com/Kunalray0707',
+                },
+                {
+                  icon: Linkedin,
+                  label: 'LinkedIn',
+                  href: 'https://www.linkedin.com/in/kunal-ray-3483812b9/',
+                },
+                {
+                  icon: Instagram,
+                  label: 'Instagram',
+                  href: 'https://www.instagram.com/hiiikunall/',
+                },
+                {
+                  icon: Mail,
+                  label: 'Email',
+                  href: 'mailto:me.kunalray@gmail.com',
+                },
+              ].map(({ icon: Icon, label, href }) => (
+                <a
                   key={label}
+                  href={href}
+                  target={href.startsWith('mailto:') ? undefined : '_blank'}
+                  rel={href.startsWith('mailto:') ? undefined : 'noreferrer'}
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[hsl(var(--cp-indigo))]/40 flex items-center justify-center text-white/60 hover:text-white transition-all duration-200"
+                  className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[hsl(var(--cp-indigo))]/40 flex items-center justify-center text-white/60 hover:text-white transition-all duration-200 inline-flex"
                 >
                   <Icon className="w-4 h-4" />
-                </button>
+                </a>
               ))}
+
             </div>
           </div>
 

@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Star, BadgeCheck, MessageCircle, Calendar, Share2, Heart, Award, Briefcase, GraduationCap, Clock, ChevronLeft, ShieldCheck } from 'lucide-react';
@@ -7,6 +8,8 @@ import Footer from '../components/Footer';
 import BookingPaymentModal from '../components/BookingPaymentModal';
 import SubmitReviewModal from '../components/SubmitReviewModal';
 import VerificationBadges from '../components/VerificationBadges';
+
+// import { fetchProfessionalVerification } from '../lib/verificationDb';
 import ProfileChat from '../components/ProfileChat';
 import { professionals } from '../data/professionals';
 import { toast } from 'react-toastify';
@@ -28,6 +31,7 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
   const { id } = useParams<{ id: string }>();
   const { currentUser } = useAuth();
   const professional = professionals.find(p => p.id === id);
+
   const [connected, setConnected] = useState(false);
   const [saved, setSaved] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -36,19 +40,70 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
   const [reviewVersion, setReviewVersion] = useState(0);
 
   const verification = professional ? getProfessionalVerification(professional.id) : null;
+  const [dbReviews, setDbReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
+  // Fetch DB-backed reviews + subscribe for realtime updates
+  useEffect(() => {
+    if (!professional) return;
+
+    const professionalId = professional.id;
+
+    let active = true;
+    async function load() {
+      try {
+        setLoadingReviews(true);
+        const { fetchProfessionalReviews } = await import('../lib/professionalReviews');
+        const rows = await fetchProfessionalReviews(professionalId);
+        if (!active) return;
+        setDbReviews(rows);
+      } catch {
+        // fall back to empty list; UI remains safe
+        if (!active) return;
+        setDbReviews([]);
+      } finally {
+        if (active) setLoadingReviews(false);
+      }
+    }
+
+    void load();
+
+    let unsubscribe: (() => void) | undefined;
+    (async () => {
+      const { subscribeProfessionalReviews } = await import('../lib/professionalReviews');
+      const sub = subscribeProfessionalReviews({
+        professionalId,
+        onChange: () => {
+          void load();
+        },
+      });
+      unsubscribe = sub.unsubscribe;
+    })();
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [professional?.id, reviewVersion]);
+
+
+
   const ratingStats = useMemo(
     () => professional ? getProfessionalRatingStats(professional.id, professional.rating, professional.reviews) : null,
     [professional, reviewVersion],
   );
+
   const verifiedReviews = useMemo(
-    () => (professional ? getReviewsForProfessional(professional.id) : []),
-    [professional, reviewVersion],
+    () => (dbReviews ?? []),
+    [dbReviews],
   );
+
   const reviewerId = currentUser?.id ?? 'guest-user';
   const eligibleBookings = professional
     ? getEligibleBookingsForReview(reviewerId, professional.id)
     : [];
   const showVerifiedBadge = professional ? isPubliclyVerified(professional.id, professional.verified) : false;
+
 
   if (!professional) {
     return (

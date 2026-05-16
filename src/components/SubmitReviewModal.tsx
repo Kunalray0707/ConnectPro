@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { LocalBooking } from '../lib/localBookings';
-import { submitVerifiedReview } from '../lib/ratings';
+import { submitProfessionalReview } from '../lib/professionalReviews';
+
+
 
 interface SubmitReviewModalProps {
   open: boolean;
@@ -32,15 +34,17 @@ const SubmitReviewModal: React.FC<SubmitReviewModalProps> = ({
   const [hover, setHover] = useState(0);
 
   const handleSubmit = () => {
-    const result = submitVerifiedReview({
+    // Note: current UI still shows booking selector to maintain verified-purchase UX.
+    // Production insert is per-requirement: (professional_id, user_id, rating, comment).
+    const result = submitProfessionalReview({
       professionalId,
-      reviewerId,
-      reviewerName,
-      bookingId,
+      userId: reviewerId,
       rating,
-      text,
+      comment: text,
     });
+
     if (!result) {
+
       toast.error('Only verified purchases can leave a review. Complete a paid booking first.');
       return;
     }

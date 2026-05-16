@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProfessionalCard from '../components/ProfessionalCard';
 import { professionals, allSkills } from '../data/professionals';
+import DiscoverMap from '../components/DiscoverMap';
 import { toast } from 'react-toastify';
 
 interface DiscoverProps {
@@ -123,6 +124,9 @@ const Discover: React.FC<DiscoverProps> = ({ theme, toggleTheme }) => {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-8 mt-8">
+          <div className="mb-8">
+            <DiscoverMap radiusKm={maxDistance} />
+          </div>
           {/* Category tabs */}
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
             {categories.map(cat => (

@@ -472,7 +472,11 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                   ].map(({ icon: Icon, label, action, color }) => (
                     <button
                       key={label}
-                      onClick={action}
+                      type="button"
+                      onClick={() => {
+                        // Ensure navigation happens even if action closes over stale values
+                        action();
+                      }}
                       className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[hsl(var(--border))] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                     >
                       <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center`}>
