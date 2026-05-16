@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, CircleDot } from 'lucide-react';
 import type { Professional } from './ProfileCard';
+import { useAuth } from '../context/AuthContext';
+import { getSocket } from '../lib/socketClient';
 
 interface ChatMessage {
   id: string;
@@ -65,7 +67,14 @@ const getProfileReply = (professional: Professional, message: string) => {
   return `I specialize in ${professional.skills.slice(0, 3).join(', ')}. ${profile.helpful} Feel free to tell me what outcome you want and I will respond with personalized next steps.`;
 };
 
+function chatRoomKey(userId: string, professionalId: string) {
+  return `chat:${userId}:${professionalId}`;
+}
+
 const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
+  const { currentUser } = useAuth();
+
+  // Demo fallback state (kept intact)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -76,23 +85,72 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [, setReceipt] = useState<'sent' | 'delivered' | 'read'>('read');
+  const [receipt, setReceipt] = useState<'sent' | 'delivered' | 'read'>('read');
 
   const onlineState = professional.available ? 'Online now' : 'Offline - response may be delayed';
+
+  const canUseLiveChat = Boolean(currentUser?.id && professional?.id);
 
   useEffect(() => {
     if (messages.length > 1 && messages[messages.length - 1].sender === 'user') {
       setReceipt('sent');
-      setTimeout(() => setReceipt('delivered'), 800);
-      setTimeout(() => setReceipt('read'), 1500);
+      const t1 = window.setTimeout(() => setReceipt('delivered'), 800);
+      const t2 = window.setTimeout(() => setReceipt('read'), 1500);
+      return () => {
+        window.clearTimeout(t1);
+        window.clearTimeout(t2);
+      };
     }
+    return;
   }, [messages]);
+
+  // Live chat wiring (socket -> UI). If live chat can't be used, demo behavior stays.
+  useEffect(() => {
+    if (!canUseLiveChat) return;
+
+    const socket = getSocket();
+    const userId = currentUser!.id;
+    const professionalId = professional.id;
+    const room = chatRoomKey(userId, professionalId);
+
+    // Join room for this user/professional pair
+    socket.emit('join', { room });
+
+    const onMessage = (message: { id: string; sender: 'user' | 'professional'; text: string; status?: 'sent' | 'delivered' | 'read' }) => {
+      // We only render messages relevant to this chat room.
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: message.id,
+          sender: message.sender,
+          text: message.text,
+          status: (message.status ?? 'read') as ChatMessage['status'],
+        },
+      ]);
+    };
+
+    const onTyping = (payload: { userId: string; professionalId: string; typing: boolean }) => {
+      if (payload?.professionalId !== professionalId) return;
+      // Show typing indicator when professional is typing (i.e., other side)
+      const typing = Boolean(payload?.typing);
+      setIsTyping(typing);
+    };
+
+    socket.on('chat:message', onMessage as any);
+    socket.on('chat:typing', onTyping as any);
+
+    return () => {
+      socket.off('chat:message', onMessage as any);
+      socket.off('chat:typing', onTyping as any);
+    };
+  }, [canUseLiveChat, currentUser?.id, professional.id]);
 
   const handleSend = (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
 
+    // Optimistic UI message
     const outgoing: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -104,6 +162,21 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
     setInput('');
     setIsTyping(true);
 
+    if (canUseLiveChat) {
+      // Live mode: send to backend; professional typing will be emitted by backend later
+      const socket = getSocket();
+      const userId = currentUser!.id;
+      const professionalId = professional.id;
+
+      socket.emit('chat:typing', { userId, professionalId, typing: false });
+      socket.emit('chat:send', { userId, professionalId, text: trimmed });
+
+      // We keep isTyping false quickly; backend will drive real typing later when implemented.
+      window.setTimeout(() => setIsTyping(false), 300);
+      return;
+    }
+
+    // Demo mode: auto reply
     window.setTimeout(() => {
       const reply: ChatMessage = {
         id: `pro-${Date.now()}`,
@@ -129,7 +202,7 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
     <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between gap-4 px-6 py-5 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]">
         <div>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">Live chat with demo profile</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">Live chat {canUseLiveChat ? '' : '(demo)'} with {professional.available ? 'online' : 'offline'} profile</p>
           <h3 className="font-heading text-lg font-semibold text-[hsl(var(--foreground))]">{professional.name}</h3>
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-white">
@@ -144,7 +217,11 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
             key={message.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`max-w-[90%] ${message.sender === 'user' ? 'ml-auto bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]' : 'bg-[hsl(var(--cp-blue))] text-white'} rounded-3xl px-4 py-3`}
+            className={`max-w-[90%] ${
+              message.sender === 'user'
+                ? 'ml-auto bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                : 'bg-[hsl(var(--cp-blue))] text-white'
+            } rounded-3xl px-4 py-3`}
           >
             <p className="text-sm leading-6">{message.text}</p>
             {message.sender === 'user' && (
@@ -152,6 +229,7 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
             )}
           </motion.div>
         ))}
+
         {isTyping && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-3xl bg-[hsl(var(--muted))] text-sm text-[hsl(var(--muted-foreground))]">
             <CircleDot size={14} className="text-[hsl(var(--cp-blue))] animate-pulse" /> Typing...
@@ -162,13 +240,16 @@ const ProfileChat: React.FC<ProfileChatProps> = ({ professional }) => {
       <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] p-5">
         <form onSubmit={handleSend} className="flex items-center gap-3">
           <input
-            aria-label="Message demo professional"
+            aria-label="Message professional"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question..."
             className="flex-1 rounded-3xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
           />
-          <button type="submit" className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-[hsl(var(--cp-blue))] text-white hover:bg-[hsl(var(--cp-blue))]/90 transition-all duration-200">
+          <button
+            type="submit"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-[hsl(var(--cp-blue))] text-white hover:bg-[hsl(var(--cp-blue))]/90 transition-all duration-200"
+          >
             <Send size={18} />
           </button>
         </form>

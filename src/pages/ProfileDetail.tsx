@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Star, BadgeCheck, Zap, MessageCircle, Video, Calendar as CalendarIcon, Heart, Share2, ArrowLeft, Award, Clock, Globe, X } from 'lucide-react';
@@ -86,7 +86,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, onConfirm,
 
           <div className="flex items-center justify-between py-2 border-t border-[hsl(var(--border))]">
             <span className="text-sm text-[hsl(var(--muted-foreground))]">Session Fee</span>
-            <span className="font-semibold text-[hsl(var(--foreground))]">{professional.hourlyRate}</span>
+            <span className="font-semibold text-[hsl(var(--foreground))]">{professional.hourlyRate ?? "₹1500"}</span>
           </div>
         </div>
 
@@ -147,7 +147,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
     toast.success(`Connected with ${professional.name}!`);
   };
 
-  const handleSlotSelect = ({ date, time }: { date: Date; time: string; tier: any }) => {
+  const handleSlotSelect = ({ date, time, tier }: { date: Date; time: string; tier: any }) => {
     setBookingDetails({ date: format(date, 'yyyy-MM-dd'), time });
     setShowBookingModal(true);
   };
@@ -198,7 +198,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
                     </div>
                     <p className="text-[hsl(var(--muted-foreground))] mb-2">{professional.role}</p>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
-                      <span className="flex items-center gap-1"><MapPin size={14} />{professional.location} · {professional.distance}</span>
+                      <span className="flex items-center gap-1"><MapPin size={14} />{professional.location} Â· {professional.distance}</span>
                       <span className="flex items-center gap-1"><Star size={14} className="text-amber-400 fill-amber-400" />{professional.rating} ({professional.reviews} reviews)</span>
                       <span className="flex items-center gap-1 text-[hsl(var(--cp-blue))]"><Zap size={14} />{professional.matchScore}% match</span>
                     </div>
@@ -237,7 +237,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Experience</p>
                   </div>
                   <div className="text-center">
-                    <p className="font-heading text-xl font-bold text-[hsl(var(--foreground))]">{professional.hourlyRate}</p>
+                    <p className="font-heading text-xl font-bold text-[hsl(var(--foreground))]">{professional.hourlyRate ?? "₹1500"}</p>
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Per Hour</p>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
                     disabled={connected}
                     className={`w-full py-3 rounded-full font-semibold text-sm transition-all duration-200 ${connected ? 'bg-green-500/20 text-green-600 border border-green-500/30' : 'bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white hover:scale-105 shadow-md'}`}
                   >
-                    {connected ? '✓ Connected' : 'Connect Now'}
+                    {connected ? 'âœ“ Connected' : 'Connect Now'}
                   </button>
                   <button
                     onClick={() => setShowChat(true)}
@@ -378,3 +378,5 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({ theme, toggleTheme, mobil
 };
 
 export default ProfileDetail;
+
+

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Star, BadgeCheck, Zap } from 'lucide-react';
@@ -70,7 +70,7 @@ className="w-[52px] h-[52px] rounded-xl object-cover"
             <div className="flex items-center gap-1.5">
               <h3 className="font-semibold text-[hsl(var(--foreground))] text-sm leading-tight">{professional.name}</h3>
               {verified && (
-                <BadgeCheck className="w-4 h-4 text-[hsl(var(--cp-indigo))] flex-shrink-0" title="Verified professional" />
+                <span title="Verified professional"><BadgeCheck className="w-4 h-4 text-[hsl(var(--cp-indigo))] flex-shrink-0" /></span>
               )}
             </div>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{professional.role}</p>

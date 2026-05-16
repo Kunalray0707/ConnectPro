@@ -1,3 +1,15 @@
 {
-    "git.ignoreLimitWarning": true
+  "git.ignoreLimitWarning": true,
+  "mcpServers": {
+    "auxly": {
+      "command": "node",
+      "args": [
+        "c:\\Users\\Acer\\.vscode\\extensions\\tzamun-arabia.auxly-extension-0.1.8\\dist\\mcp-server\\index.js"
+      ],
+      "env": {
+        "AUXLY_WORKSPACE_PATH": "d:\\ProConnect",
+        "AUXLY_API_URL": "https://auxly.tzamun.com"
+      }
+    }
+  }
 }

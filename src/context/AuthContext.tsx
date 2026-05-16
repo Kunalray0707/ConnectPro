@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+﻿import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import type { Professional } from '../components/ProfessionalCard';
 import { professionals as baseProfessionals } from '../data/professionals';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
@@ -80,7 +80,7 @@ const mapProfile = (row: any): Professional => ({
   skills: Array.isArray(row.skills) ? row.skills : (row.skills ? String(row.skills).split(',').map((skill: string) => skill.trim()) : []),
   verified: row.verified ?? false,
   available: row.available ?? true,
-avatar: isValidUrl(row.avatar) ? row.avatar : 'https://images.unsplash.com/photo-150006487b67791-00dcc994a43e?w=80&h=80&fit=crop&crop=face',
+  avatar: isValidUrl(row.avatar) ? row.avatar : 'https://images.unsplash.com/photo-150006487b67791-00dcc994a43e?w=80&h=80&fit=crop&crop=face',
   rate: row.rate ?? row.hourly_rate ?? '₹1500',
   experience: row.experience ?? '3-5 years',
 });
@@ -123,34 +123,44 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const [isDemoMode, setIsDemoMode] = useState(true);
 
   useEffect(() => {
+    let finalized = false;
+    const finish = () => {
+      if (finalized) return;
+      finalized = true;
+      setLoading(false);
+    };
+
+    const timeout = setTimeout(finish, 5000);
+
     const initialize = async () => {
       if (!checkRateLimit('init', 20, 60000)) {
         console.warn('Rate limit reached for initialization');
+        finish();
+        return;
       }
 
       if (!isSupabaseConfigured) {
-        // Production safety: without Supabase configured, do not pretend the user is authenticated.
         setProfiles([]);
         setCurrentUser(null);
         setIsDemoMode(false);
-        setLoading(false);
+        finish();
         return;
       }
 
       try {
-      const { data: sessionData, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Session error:', error.message);
-      }
-
-      if (sessionData?.session?.user) {
-        const user = buildUser(sessionData.session.user);
-        setCurrentUser(user);
-        setIsDemoMode(user.demo ?? false);
-
-        if (sessionData.session.expires_at) {
-          window.localStorage.setItem(SESSION_EXPIRY_KEY, String(sessionData.session.expires_at));
+        const { data: sessionData, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Session error:', error.message);
         }
+
+        if (sessionData?.session?.user) {
+          const user = buildUser(sessionData.session.user);
+          setCurrentUser(user);
+          setIsDemoMode(user.demo ?? false);
+
+          if (sessionData.session.expires_at) {
+            window.localStorage.setItem(SESSION_EXPIRY_KEY, String(sessionData.session.expires_at));
+          }
         } else {
           setProfiles([]);
           setCurrentUser(null);
@@ -174,10 +184,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         setIsDemoMode(false);
       }
 
-      setLoading(false);
+      finish();
     };
 
     initialize();
+
+    return () => {
+      clearTimeout(timeout);
+      finish();
+    };
   }, []);
 
   useEffect(() => {
@@ -219,11 +234,11 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   }, [currentUser, isDemoMode]);
 
   useEffect(() => {
-  if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) return;
   }, [profiles]);
 
   useEffect(() => {
-  if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) return;
   }, [currentUser]);
 
   const signIn = async (identifier: string, password: string): Promise<AppUser | null> => {
@@ -233,18 +248,18 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
     if (!isSupabaseConfigured) {
       const storedUser = getFallbackUser();
-      if (storedUser && 
-          (storedUser.email === identifier || storedUser.phone === identifier) && 
+      if (storedUser &&
+          (storedUser.email === identifier || storedUser.phone === identifier) &&
           password === storedUser.email) {
         setCurrentUser(storedUser);
         return storedUser;
       }
-      
+
       if (identifier === 'demo@example.com' && password === 'demo') {
         setCurrentUser(DEMO_USER);
         return DEMO_USER;
       }
-      
+
       return null;
     }
 
@@ -307,8 +322,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         },
       });
 
-      // Some Supabase SDK versions expose different shapes for signUp result.
-      // We only need the created user id/email to build our AppUser.
       const createdUser = (result as any)?.data?.user ?? (result as any)?.user;
       if (error) {
         console.error('Sign up error:', (error as any)?.message);
@@ -320,7 +333,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       }
 
       const user = buildUser(createdUser);
-
 
       setCurrentUser(user);
       setIsDemoMode(false);
@@ -338,9 +350,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       return;
     }
 
-  if (provider === 'Phone') {
-      // Phone OTP login is handled via the dedicated PhoneOtpLogin component.
-      // Keeping this here for backward-compatibility: redirect callers to phone OTP UI.
+    if (provider === 'Phone') {
       throw new Error('Phone OTP login is not initiated from AuthContext.socialSignIn; use PhoneOtpLogin.');
     }
 
@@ -427,7 +437,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const addProfessional = async (profile: Professional): Promise<Professional | null> => {
     if (isSupabaseConfigured && currentUser && !currentUser.demo) {
       try {
-const newProfile = {
+        const newProfile = {
           ...profile,
           user_id: currentUser.id,
           category: profile.category,
@@ -528,5 +538,4 @@ const useAuth = (): AuthContextValue => {
   return context;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export { AuthProvider, useAuth };

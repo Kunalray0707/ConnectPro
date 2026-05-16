@@ -1,21 +1,48 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Briefcase, MessageCircle, Star, TrendingUp, Bell, Settings, BadgeCheck, Calendar, Zap, Eye, Award, ChevronRight, Activity } from 'lucide-react';
+import {
+  Users,
+  MessageCircle,
+  Star,
+  TrendingUp,
+  Bell,
+  Settings,
+  BadgeCheck,
+  Calendar,
+  Zap,
+  Eye,
+  Award,
+  Activity,
+  Briefcase,
+  ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { professionals } from '../data/professionals';
 import { toast } from 'react-toastify';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { loadLocalBookings, type LocalBooking } from '../lib/localBookings';
 import VerificationWizard from '../components/VerificationWizard';
+import { useSocketConnection } from '../lib/useSocketConnection';
+import { getSocket } from '../lib/socketClient';
 
 interface DashboardProps {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
 }
 
-const activityData = [
+type OverviewStatsPayload = {
+  profileViews: number;
+  connections: number;
+  messages: number;
+  avgRating: number;
+};
+
+type OverviewActivityPoint = { day: string; views: number; connections: number };
+
+const initialActivityData: OverviewActivityPoint[] = [
+
   { day: 'Mon', views: 24, connections: 4 },
   { day: 'Tue', views: 38, connections: 7 },
   { day: 'Wed', views: 31, connections: 5 },
@@ -25,6 +52,27 @@ const activityData = [
   { day: 'Sun', views: 58, connections: 12 },
 ];
 
+
+type OverviewStat = {
+  icon: typeof Eye;
+  label: string;
+  value: string;
+  change: string;
+  positive: boolean;
+};
+
+
+
+
+const initialStats = [
+  { icon: Eye, label: 'Profile Views', value: '1,284', change: '+18%', positive: true },
+  { icon: Users, label: 'Connections', value: '347', change: '+12%', positive: true },
+  { icon: MessageCircle, label: 'Messages', value: '89', change: '+5%', positive: true },
+  { icon: Star, label: 'Avg Rating', value: '4.8', change: '+0.2', positive: true },
+] as const;
+
+const recentConnections = professionals.slice(0, 4);
+
 const notifications = [
   { id: 1, type: 'connection', text: 'Dr. Priya Sharma accepted your connection request', time: '2m ago', read: false },
   { id: 2, type: 'message', text: 'New message from Arjun Mehta', time: '15m ago', read: false },
@@ -32,24 +80,33 @@ const notifications = [
   { id: 4, type: 'match', text: 'New 94% match found: Chef Ravi Kumar', time: '3h ago', read: true },
 ];
 
-const recentConnections = professionals.slice(0, 4);
-
 const tabs = ['Overview', 'Connections', 'Messages', 'Bookings', 'Analytics'];
 
 const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
+  const navigate = useNavigate();
+
   const { currentUser, loading } = useAuth();
+  const { connected: socketConnected } = useSocketConnection();
+
+
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Overview');
   const [localBookings, setLocalBookings] = useState<LocalBooking[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(72);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [unread] = useState(notifications.filter(n => !n.read).length);
   const [onlineStatus, setOnlineStatus] = useState(true);
+
+  // Live overview states (keep initial values as fallback)
+  const [activityData, setActivityData] = useState<OverviewActivityPoint[]>(initialActivityData);
+    const [stats, setStats] = useState<OverviewStat[]>(initialStats as unknown as OverviewStat[]);
+
+
+  const unread = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     setLocalBookings(loadLocalBookings());
     const interval = setInterval(() => {
-      setProfileCompletion(prev => Math.min(prev + 1, 100));
+      setProfileCompletion((prev) => Math.min(prev + 1, 100));
     }, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -70,12 +127,42 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
     }
   }, []);
 
-  const stats = [
-    { icon: Eye, label: 'Profile Views', value: '1,284', change: '+18%', positive: true },
-    { icon: Users, label: 'Connections', value: '347', change: '+12%', positive: true },
-    { icon: MessageCircle, label: 'Messages', value: '89', change: '+5%', positive: true },
-    { icon: Star, label: 'Avg Rating', value: '4.8', change: '+0.2', positive: true },
-  ];
+  useEffect(() => {
+    // Socket listeners for overview realtime baseline
+    const socket = getSocket();
+
+    const onStats = (payload: OverviewStatsPayload) => {
+      // Ensure the state update matches the expected non-readonly array type.
+
+
+      const next = [
+        { icon: Eye, label: 'Profile Views', value: payload.profileViews.toLocaleString('en-IN'), change: '+live', positive: true },
+        { icon: Users, label: 'Connections', value: payload.connections.toString(), change: '+live', positive: true },
+        { icon: MessageCircle, label: 'Messages', value: payload.messages.toString(), change: '+live', positive: true },
+        { icon: Star, label: 'Avg Rating', value: payload.avgRating.toFixed(1), change: '+live', positive: true },
+      ] as const;
+
+      setStats(next as unknown as OverviewStat[]);
+
+
+
+    };
+
+    const onActivity = (payload: OverviewActivityPoint[]) => {
+      // Server sends day/views/connections; keep as-is.
+      if (!Array.isArray(payload)) return;
+      setActivityData(payload);
+    };
+
+    socket.on('overview:stats', onStats as unknown as (payload: OverviewStatsPayload) => void);
+    socket.on('overview:activity', onActivity as unknown as (payload: OverviewActivityPoint[]) => void);
+
+    return () => {
+      socket.off('overview:stats', onStats as unknown as (payload: OverviewStatsPayload) => void);
+      socket.off('overview:activity', onActivity as unknown as (payload: OverviewActivityPoint[]) => void);
+    };
+
+  }, []);
 
   if (loading) {
     return (
@@ -103,8 +190,16 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-[hsl(var(--cp-indigo))]/30"
               />
               <button
-                onClick={() => { setOnlineStatus(!onlineStatus); toast.info(onlineStatus ? 'Status set to Away' : 'Status set to Online'); }}
-                className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[hsl(var(--card))] transition-colors ${onlineStatus ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                onClick={() => {
+                  setOnlineStatus((prev) => {
+                    const next = !prev;
+                    toast.info(next ? 'Status set to Online' : 'Status set to Away');
+                    return next;
+                  });
+                }}
+                className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[hsl(var(--card))] transition-colors ${
+                  onlineStatus ? 'bg-emerald-500' : 'bg-amber-400'
+                }`}
               />
             </div>
             <p className="font-semibold text-sm text-[hsl(var(--foreground))]">{currentUser?.name ?? 'Your Profile'}</p>
@@ -125,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
           </div>
 
           <nav className="flex-1 space-y-1">
-            {tabs.map(tab => (
+            {tabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -146,11 +241,14 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
           </nav>
 
           <div className="space-y-1 border-t border-[hsl(var(--border))] pt-4">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-all duration-200">
+            <button
+              onClick={() => navigate('/settings/profile')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-all duration-200"
+            >
               <Settings className="w-4 h-4" /> Settings
             </button>
-
           </div>
+
         </aside>
 
         {/* Main content */}
@@ -161,21 +259,44 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
               <h1 className="font-heading text-2xl font-bold text-[hsl(var(--foreground))]">
                 {activeTab === 'Overview' ? 'Dashboard' : activeTab}
               </h1>
-              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-0.5">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-0.5 flex items-center gap-3">
+                {new Date().toLocaleDateString('en-IN', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+                <span
+                  className={`inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border ${
+                    socketConnected
+                      ? 'bg-emerald-100/60 text-emerald-700 border-emerald-300'
+                      : 'bg-[hsl(var(--muted))]/50 text-[hsl(var(--muted-foreground))] border-[hsl(var(--border))]'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      socketConnected ? 'bg-emerald-500' : 'bg-[hsl(var(--muted-foreground))]'
+                    }`}
+                  />
+                  Live
+                </span>
               </p>
             </div>
+
             <div className="flex items-center gap-3">
               {/* Mobile tabs */}
               <div className="lg:hidden">
                 <select
                   value={activeTab}
-                  onChange={e => setActiveTab(e.target.value)}
+                  onChange={(e) => setActiveTab(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm focus:outline-none"
                 >
-                  {tabs.map(t => <option key={t}>{t}</option>)}
+                  {tabs.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
                 </select>
               </div>
+
               <div className="relative">
                 <button
                   onClick={() => setNotifOpen(!notifOpen)}
@@ -188,6 +309,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     </span>
                   )}
                 </button>
+
                 {notifOpen && (
                   <motion.div
                     initial={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -198,7 +320,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                       <h3 className="font-semibold text-sm text-[hsl(var(--foreground))]">Notifications</h3>
                     </div>
                     <div className="divide-y divide-[hsl(var(--border))]">
-                      {notifications.map(n => (
+                      {notifications.map((n) => (
                         <div key={n.id} className={`p-4 flex gap-3 ${!n.read ? 'bg-[hsl(var(--cp-indigo))]/5' : ''}`}>
                           <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? 'bg-[hsl(var(--cp-indigo))]' : 'bg-transparent'}`} />
                           <div>
@@ -231,7 +353,13 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                       <div className="w-9 h-9 rounded-xl bg-[hsl(var(--cp-indigo))]/10 flex items-center justify-center">
                         <Icon className="w-4 h-4 text-[hsl(var(--cp-indigo))]" />
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${positive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-100 text-red-700'}`}>
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          positive
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
                         {change}
                       </span>
                     </div>
@@ -259,7 +387,14 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: '12px' }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                      }}
+                    />
                     <Area type="monotone" dataKey="views" stroke="hsl(var(--cp-indigo))" strokeWidth={2} fill="url(#viewsGrad)" name="Views" />
                     <Area type="monotone" dataKey="connections" stroke="hsl(var(--cp-violet))" strokeWidth={2} fill="url(#connGrad)" name="Connections" />
                   </AreaChart>
@@ -271,10 +406,12 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                 <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6">
                   <div className="flex items-center justify-between mb-5">
                     <h2 className="font-heading font-semibold text-[hsl(var(--foreground))]">Recent Connections</h2>
-                    <Link to="/discover" className="text-xs text-[hsl(var(--cp-indigo))] hover:underline">View all</Link>
+                    <Link to="/discover" className="text-xs text-[hsl(var(--cp-indigo))] hover:underline">
+                      View all
+                    </Link>
                   </div>
                   <div className="space-y-4">
-                    {recentConnections.map(p => (
+                    {recentConnections.map((p) => (
                       <div key={p.id} className="flex items-center gap-3">
                         <img src={p.avatar} alt={p.name} width={40} height={40} className="w-10 h-10 rounded-xl object-cover" />
                         <div className="flex-1 min-w-0">
@@ -301,12 +438,17 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     <h2 className="font-heading font-semibold text-[hsl(var(--foreground))]">AI Recommendations</h2>
                   </div>
                   <div className="space-y-3">
-                    {professionals.slice(0, 3).map(p => (
-                      <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-[hsl(var(--muted))]/50 hover:bg-[hsl(var(--muted))] transition-all duration-200">
+                    {professionals.slice(0, 3).map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-[hsl(var(--muted))]/50 hover:bg-[hsl(var(--muted))] transition-all duration-200"
+                      >
                         <img src={p.avatar} alt={p.name} width={36} height={36} className="w-9 h-9 rounded-lg object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[hsl(var(--foreground))] truncate">{p.name}</p>
-                          <p className="text-xs text-[hsl(var(--muted-foreground))]">{p.matchScore}% match · {p.distance}</p>
+                          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                            {p.matchScore}% match · {p.distance}
+                          </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
                       </div>
@@ -315,14 +457,17 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                 </div>
               </div>
 
-              {/* Quick actions */}
+              {/* Quick actions (keep existing behavior for now) */}
               <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6">
                 <h2 className="font-heading font-semibold text-[hsl(var(--foreground))] mb-5">Quick Actions</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { icon: Users, label: 'Find Matches', action: () => toast.info('Opening discover...'), color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/20' },
-                    { icon: Briefcase, label: 'Post Service', action: () => toast.success('Service posting opened!'), color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/20' },
-                    { icon: Calendar, label: 'Book Slot', action: () => toast.info('Calendar opened!'), color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' },
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { icon: Users, label: 'Find Matches', action: () => navigate('/matches'), color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/20' },
+
+                    { icon: Briefcase, label: 'Post Service', action: () => navigate('/post-service'), color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/20' },
+
+                    { icon: Calendar, label: 'Book Slot', action: () => navigate('/bookings/new'), color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' },
+
                     { icon: Award, label: 'Get Verified', action: () => setVerifyOpen(true), color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
                   ].map(({ icon: Icon, label, action, color }) => (
                     <button
@@ -379,16 +524,25 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
             </div>
           )}
 
-          {/* Messages Tab */}
+          {/* Messages Tab (unchanged placeholders) */}
           {activeTab === 'Messages' && (
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-3 h-[500px]">
                 <div className="border-r border-[hsl(var(--border))] overflow-y-auto">
                   <div className="p-4 border-b border-[hsl(var(--border))]">
-                    <input type="text" placeholder="Search messages..." className="w-full px-3 py-2 rounded-lg bg-[hsl(var(--muted))] text-sm text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-indigo))]/40" />
+                    <input
+                      type="text"
+                      placeholder="Search messages..."
+                      className="w-full px-3 py-2 rounded-lg bg-[hsl(var(--muted))] text-sm text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-indigo))]/40"
+                    />
                   </div>
                   {professionals.map((p, i) => (
-                    <div key={p.id} className={`flex items-center gap-3 p-4 hover:bg-[hsl(var(--muted))]/50 cursor-pointer transition-colors ${i === 0 ? 'bg-[hsl(var(--cp-indigo))]/5 border-l-2 border-[hsl(var(--cp-indigo))]' : ''}`}>
+                    <div
+                      key={p.id}
+                      className={`flex items-center gap-3 p-4 hover:bg-[hsl(var(--muted))]/50 cursor-pointer transition-colors ${
+                        i === 0 ? 'bg-[hsl(var(--cp-indigo))]/5 border-l-2 border-[hsl(var(--cp-indigo))]' : ''
+                      }`}
+                    >
                       <div className="relative">
                         <img src={p.avatar} alt={p.name} width={40} height={40} className="w-10 h-10 rounded-xl object-cover" />
                         {p.available && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[hsl(var(--card))] rounded-full" />}
@@ -416,7 +570,13 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                       { from: 'them', text: 'I need a consultation for a complex case. Are you available this week?', time: '10:33 AM' },
                     ].map((msg, i) => (
                       <div key={i} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm ${msg.from === 'me' ? 'bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'}`}>
+                        <div
+                          className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm ${
+                            msg.from === 'me'
+                              ? 'bg-gradient-to-r from-[hsl(var(--cp-indigo))] to-[hsl(var(--cp-violet))] text-white'
+                              : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                          }`}
+                        >
                           <p>{msg.text}</p>
                           <p className={`text-xs mt-1 ${msg.from === 'me' ? 'text-white/60' : 'text-[hsl(var(--muted-foreground))]'}`}>{msg.time}</p>
                         </div>
@@ -441,7 +601,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
             </div>
           )}
 
-          {/* Bookings Tab */}
+          {/* Bookings Tab (unchanged) */}
           {activeTab === 'Bookings' && (
             <div className="space-y-4">
               {localBookings.length > 0 && (
@@ -459,23 +619,28 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     >
                       <div className="flex-1">
                         <p className="font-medium text-[hsl(var(--foreground))]">{bk.serviceTitle}</p>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{bk.provider} · {bk.priceLabel}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                          {bk.provider} · {bk.priceLabel}
+                        </p>
                         <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
                           <Calendar className="w-3.5 h-3.5 inline mr-1" />
                           {bk.date} at {bk.time}
                         </p>
                       </div>
-                      <span className={`text-xs font-medium px-3 py-1 rounded-full ${
-                        bk.status === 'paid'
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                      }`}>
+                      <span
+                        className={`text-xs font-medium px-3 py-1 rounded-full ${
+                          bk.status === 'paid'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                            : 'bg-amber-100 text-amber-700 dark:bg-emerald-900/20 dark:text-amber-400'
+                        }`}
+                      >
                         {bk.status === 'paid' ? 'Paid' : 'Pending payment'}
                       </span>
                     </motion.div>
                   ))}
                 </>
               )}
+
               <h2 className="font-heading text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide pt-2">
                 Sample appointments
               </h2>
@@ -490,14 +655,24 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                   <img src={p.avatar} alt={p.name} width={48} height={48} className="w-12 h-12 rounded-xl object-cover" />
                   <div className="flex-1">
                     <p className="font-medium text-[hsl(var(--foreground))]">{p.name}</p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">{p.role} · {p.rate}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                      {p.role} · {p.rate}
+                    </p>
                     <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
                       <Calendar className="w-3.5 h-3.5 inline mr-1" />
                       {['Jan 28, 2026 · 10:00 AM', 'Jan 30, 2026 · 2:00 PM', 'Feb 1, 2026 · 11:00 AM', 'Feb 3, 2026 · 4:00 PM'][i]}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium px-3 py-1 rounded-full ${i === 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : i === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}`}>
+                    <span
+                      className={`text-xs font-medium px-3 py-1 rounded-full ${
+                        i === 0
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          : i === 1
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                      }`}
+                    >
                       {['Confirmed', 'Upcoming', 'Pending', 'Pending'][i]}
                     </span>
                     <button
@@ -512,7 +687,7 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
             </div>
           )}
 
-          {/* Analytics Tab */}
+          {/* Analytics Tab (unchanged) */}
           {activeTab === 'Analytics' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -522,8 +697,8 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                   { label: 'Response Rate', value: '94%', icon: MessageCircle, change: '+3%' },
                 ].map(({ label, value, icon: Icon, change }) => (
                   <div key={label} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-[hsl(var(--cp-indigo))]/10 flex items-center justify-center">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-[hsl(var(--cp-indigo))]/10 flex items-center justify-center">
                         <Icon className="w-5 h-5 text-[hsl(var(--cp-indigo))]" />
                       </div>
                       <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-0.5 rounded-full">{change}</span>
@@ -533,10 +708,17 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                   </div>
                 ))}
               </div>
+
               <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6">
                 <h2 className="font-heading font-semibold text-[hsl(var(--foreground))] mb-6">30-Day Performance</h2>
                 <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={[...activityData, ...activityData.map(d => ({ ...d, views: d.views * 1.3, connections: d.connections * 1.2 })), ...activityData.map(d => ({ ...d, views: d.views * 1.6, connections: d.connections * 1.5 }))]}>
+                  <AreaChart
+                    data={[
+                      ...activityData,
+                      ...activityData.map((d) => ({ ...d, views: d.views * 1.3, connections: d.connections * 1.2 })),
+                      ...activityData.map((d) => ({ ...d, views: d.views * 1.6, connections: d.connections * 1.5 })),
+                    ]}
+                  >
                     <defs>
                       <linearGradient id="viewsGrad2" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="hsl(var(--cp-indigo))" stopOpacity={0.3} />
@@ -546,7 +728,14 @@ const Dashboard: React.FC<DashboardProps> = ({ theme, toggleTheme }) => {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: '12px' }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                      }}
+                    />
                     <Area type="monotone" dataKey="views" stroke="hsl(var(--cp-indigo))" strokeWidth={2} fill="url(#viewsGrad2)" name="Views" />
                   </AreaChart>
                 </ResponsiveContainer>

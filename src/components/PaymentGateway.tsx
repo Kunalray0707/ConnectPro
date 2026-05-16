@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ShieldCheck, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -97,7 +97,7 @@ const PaymentGateway: React.FC<PaymentGatewayProps> = ({
         currency: 'INR',
         client_name: currentUser?.name ?? 'Guest',
         professional_name: booking.provider,
-        service_title: booking.serviceTitle,
+        
         client_user_id: currentUser?.id,
       };
 

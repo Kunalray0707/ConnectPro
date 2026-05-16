@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import BookingPaymentModal from '../components/BookingPaymentModal';
 import SubmitReviewModal from '../components/SubmitReviewModal';
 import VerificationBadges from '../components/VerificationBadges';
+import ProfileChat from '../components/ProfileChat';
 import { professionals } from '../data/professionals';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
@@ -182,6 +183,17 @@ const Profile: React.FC<ProfileProps> = ({ theme, toggleTheme }) => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Messages (realtime chat) */}
+          <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-10">
+            <div className="mb-6">
+              <h2 className="font-heading text-xl font-semibold text-[hsl(var(--foreground))]">Messages</h2>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                Chat with {professional.name} in real-time.
+              </p>
+            </div>
+            <ProfileChat professional={professional} />
           </div>
 
           {/* Tabs */}
