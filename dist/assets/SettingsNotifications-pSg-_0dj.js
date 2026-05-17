@@ -1,1 +1,0 @@
-import{N as e,j as t}from"./index-5LN-gTsp.js";import n from"./Settings-CUyBL6P4.js";e();var r=t(),i=({theme:e,toggleTheme:t})=>(0,r.jsx)(n,{theme:e,toggleTheme:t});export{i as default};
