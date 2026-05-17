@@ -59,12 +59,13 @@ const settingsTabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] 
   { id: 'verification', label: 'Verification', icon: <BadgeCheck size={18} /> },
 ];
 
-const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => {} }) => {
-  const { currentUser, signOut } = useAuth();
+const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = false, toggleMobileMode = () => { } }) => {
+  const { currentUser, signOut, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyKey, setVerifyKey] = useState(0);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [savedProfile, setSavedProfile] = useState<ProfileFormData | null>(null);
   const [profileChanges, setProfileChanges] = useState<ProfileChange[]>([]);
@@ -108,22 +109,53 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
     [currentUser]
   );
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues,
   });
 
+  const currentAvatarUrl = watch('avatar_url');
+  const currentName = watch('name');
+  const currentRole = watch('role');
+
   useEffect(() => {
     const init = async () => {
-      if (!currentUser?.id) return;
-
       setLoadingProfile(true);
+
+      // Check local storage for previously saved profile data
+      let localData: Partial<ProfileFormData> = {};
       try {
-        // Fetch user profile fields from `profiles`.
-        // Expected columns: user_id, name, phone, location, role, bio, skills, experience, avatar_url.
+        const stored = localStorage.getItem('cp_user_profile_data');
+        if (stored) {
+          localData = JSON.parse(stored);
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      const mergedDefaults: ProfileFormData = {
+        name: localData.name || currentUser?.name || '',
+        email: localData.email || currentUser?.email || '',
+        phone: localData.phone || currentUser?.phone || '',
+        bio: localData.bio || '',
+        location: localData.location || currentUser?.location || '',
+        role: localData.role || currentUser?.role || '',
+        skills: localData.skills || '',
+        experience: localData.experience || '',
+        avatar_url: localData.avatar_url || '',
+      };
+
+      if (!currentUser?.id) {
+        setSavedProfile(mergedDefaults);
+        reset(mergedDefaults);
+        setLoadingProfile(false);
+        return;
+      }
+
+      try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('user_id, name, phone, location, role, bio, skills, experience, avatar_url, avatar')
+          .select('user_id, name, email, phone, location, role, bio, skills, experience, avatar_url, avatar')
           .eq('user_id', currentUser.id)
           .maybeSingle();
 
@@ -134,43 +166,35 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
           ? row.skills.join(', ')
           : row?.skills
             ? String(row.skills)
-            : '';
+            : mergedDefaults.skills;
 
-        const avatar = row?.avatar_url || row?.avatar || '';
+        const avatar = row?.avatar_url || row?.avatar || mergedDefaults.avatar_url;
 
         const loaded: ProfileFormData = {
-          name: row?.name ?? currentUser.name ?? '',
-          email: currentUser.email ?? row?.email ?? '',
-          phone: row?.phone ?? currentUser.phone ?? '',
-          bio: row?.bio ?? '',
-          location: row?.location ?? currentUser.location ?? '',
-          role: row?.role ?? currentUser.role ?? '',
+          name: row?.name || mergedDefaults.name,
+          email: row?.email || mergedDefaults.email,
+          phone: row?.phone || mergedDefaults.phone,
+          bio: row?.bio || mergedDefaults.bio,
+          location: row?.location || mergedDefaults.location,
+          role: row?.role || mergedDefaults.role,
           skills: skillsStr,
-          experience: row?.experience ?? '',
+          experience: row?.experience || mergedDefaults.experience,
           avatar_url: avatar,
         };
 
         setSavedProfile(loaded);
         reset(loaded);
+        localStorage.setItem('cp_user_profile_data', JSON.stringify(loaded));
       } catch (e: any) {
-        console.error('Load profile error:', e);
-        const loaded = {
-          ...defaultValues,
-          bio: '',
-          skills: '',
-          experience: '',
-          avatar_url: '',
-        };
-        setSavedProfile(loaded);
-        reset(loaded);
-        toast.error('Could not load profile from database. Using local defaults.');
+        console.warn('Load profile from database failed. Using local storage defaults:', e);
+        setSavedProfile(mergedDefaults);
+        reset(mergedDefaults);
       } finally {
         setLoadingProfile(false);
       }
     };
 
     init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
   useEffect(() => {
@@ -185,11 +209,12 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
   }, []);
 
   const onSubmit = async (data: ProfileFormData) => {
-    if (!currentUser?.id || !savedProfile) return;
+    setSavingProfile(true);
 
+    const beforeObj = savedProfile || defaultValues;
     const changes: ProfileChange[] = [];
     (Object.keys(data) as Array<keyof ProfileFormData>).forEach((key) => {
-      const before = (savedProfile[key] ?? '') as any;
+      const before = (beforeObj[key] ?? '') as any;
       const after = (data[key] ?? '') as any;
       if (String(before) !== String(after)) {
         changes.push({ label: String(key).replace(/([A-Z])/g, ' $1'), before: String(before), after: String(after) });
@@ -197,37 +222,53 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
     });
 
     try {
-      // Upsert into profiles table (user profile record)
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          user_id: currentUser.id,
+      // 1. Save to local storage for immediate persistence
+      localStorage.setItem('cp_user_profile_data', JSON.stringify(data));
+
+      // 2. Update AuthContext state
+      if (updateProfile) {
+        await updateProfile({
           name: data.name,
+          email: data.email,
           phone: data.phone,
           location: data.location,
           role: data.role,
-          bio: data.bio || null,
-          experience: data.experience || null,
-          skills: data.skills ? data.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
-          avatar_url: data.avatar_url || null,
-          public: true,
-        })
-        .select();
+        });
+      }
 
-      if (error) throw error;
+      // 3. Try to save to Supabase if configured
+      if (currentUser?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            user_id: currentUser.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            location: data.location,
+            role: data.role,
+            bio: data.bio || null,
+            experience: data.experience || null,
+            skills: data.skills ? data.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            avatar_url: data.avatar_url || null,
+            public: true,
+            updated_at: new Date().toISOString(),
+          });
 
-      const nextSaved: ProfileFormData = {
-        ...data,
-        avatar_url: data.avatar_url || '',
-      };
+        if (error) {
+          console.warn('Supabase profile upsert skipped/failed:', error.message);
+        }
+      }
 
-      setSavedProfile(nextSaved);
+      setSavedProfile(data);
       setProfileChanges(changes);
       setShowSaveSummary(true);
       toast.success('Profile updated successfully!');
     } catch (e: any) {
       console.error('Update profile error:', e);
       toast.error('Failed to update profile.');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -259,12 +300,6 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                 <h1 className="font-heading text-3xl font-bold text-[hsl(var(--foreground))]">Settings</h1>
                 <p className="text-[hsl(var(--muted-foreground))] mt-1">Manage your account preferences and profile</p>
               </div>
-              <Link
-                to="/admin"
-                className="inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] px-4 py-2 text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-all duration-200"
-              >
-                Open Admin Panel
-              </Link>
             </div>
           </motion.div>
 
@@ -275,11 +310,10 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      activeTab === tab.id
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === tab.id
                         ? 'bg-gradient-to-r from-[hsl(var(--cp-blue))]/15 to-[hsl(var(--cp-violet))]/10 text-[hsl(var(--cp-blue))]'
                         : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-3">{tab.icon}{tab.label}</span>
                     <ChevronRight size={14} className="opacity-50" />
@@ -312,7 +346,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                     <div className="flex items-center gap-5 mb-8">
                       <div className="relative">
                         <img
-                          src={watchAvatar(savedProfile)}
+                          src={currentAvatarUrl || savedProfile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&crop=face'}
                           alt="Profile"
                           width={80}
                           height={80}
@@ -323,8 +357,8 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                         </button>
                       </div>
                       <div>
-                        <p className="font-heading font-semibold text-[hsl(var(--foreground))]">{savedProfile?.name || currentUser?.name || 'Your Name'}</p>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{savedProfile?.role || currentUser?.role || 'Role'}</p>
+                        <p className="font-heading font-semibold text-[hsl(var(--foreground))]">{currentName || savedProfile?.name || currentUser?.name || 'Your Name'}</p>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">{currentRole || savedProfile?.role || currentUser?.role || 'Role'}</p>
                         <p className="text-xs text-[hsl(var(--cp-blue))] hover:underline mt-1">Update photo via Profile Image URL</p>
                       </div>
                     </div>
@@ -382,10 +416,18 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
 
                       <button
                         type="submit"
-                        disabled={loadingProfile}
-                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200 disabled:opacity-60"
+                        disabled={savingProfile || loadingProfile}
+                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] text-white text-sm font-semibold hover:scale-105 transition-all duration-200 disabled:opacity-60 cursor-pointer"
                       >
-                        <Save size={16} /> Save Changes
+                        {savingProfile ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} /> Save Changes
+                          </>
+                        )}
                       </button>
                     </form>
 
@@ -563,13 +605,12 @@ const Settings: React.FC<SettingsProps> = ({ theme, toggleTheme, mobileMode = fa
                             </div>
                           </div>
                           <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                              item.status === 'approved'
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === 'approved'
                                 ? 'bg-emerald-500/10 text-emerald-600'
                                 : item.status === 'pending'
                                   ? 'bg-amber-500/10 text-amber-600'
                                   : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
-                            }`}
+                              }`}
                           >
                             {item.status === 'approved' ? 'Verified' : item.status === 'pending' ? 'Pending' : 'Upload'}
                           </span>

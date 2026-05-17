@@ -17,6 +17,8 @@ const About = lazy(() => import('./src/pages/About'));
 const Profile = lazy(() => import('./src/pages/Profile'));
 const NotFound = lazy(() => import('./src/pages/NotFound'));
 const Admin = lazy(() => import('./src/pages/Admin'));
+const Login = lazy(() => import('./src/pages/Login'));
+const AdminProtectedRoute = lazy(() => import('./src/components/AdminProtectedRoute'));
 
 const Matches = lazy(() => import('./src/pages/Matches'));
 const PostService = lazy(() => import('./src/pages/PostService'));
@@ -61,11 +63,19 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Home theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/discover" element={<Discover theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/login" element={<Login theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/marketplace" element={<Marketplace theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/dashboard" element={<Dashboard theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/profile/:id" element={<Profile theme={theme} toggleTheme={toggleTheme} />} />
-              <Route path="/admin" element={<Admin theme={theme} toggleTheme={toggleTheme} />} />
+              <Route
+                path="/admin"
+                element={
+                  <AdminProtectedRoute>
+                    <Admin theme={theme} toggleTheme={toggleTheme} />
+                  </AdminProtectedRoute>
+                }
+              />
 
               {/* Required routes */}
               <Route path="/matches" element={<Matches theme={theme} toggleTheme={toggleTheme} />} />

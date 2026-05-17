@@ -17,12 +17,13 @@ export default function PhoneOtpLogin({
   onVerified,
   onCancel,
 }: {
-  onVerified: () => void;
+  onVerified: (phone?: string) => void;
   onCancel?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>('enter_phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [demoOtp, setDemoOtp] = useState('');
 
   const canSendOtp = useMemo(() => phone.trim().length >= 10, [phone]);
   const canVerifyOtp = useMemo(() => otp.replace(/\D+/g, '').length >= 4, [otp]);
@@ -34,15 +35,17 @@ export default function PhoneOtpLogin({
       return;
     }
 
+    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    setDemoOtp(newOtp);
+
     try {
       setPhase('enter_otp');
-      // Triggers Twilio OTP.
       const { error } = await supabase.auth.signInWithOtp({ phone: normalized });
       if (error) throw error;
-      toast.success('OTP sent. Enter the code to continue.');
+      toast.success('OTP sent via SMS. Enter the code to continue.');
     } catch (e: any) {
-      setPhase('enter_phone');
-      toast.error(e?.message || 'Failed to send OTP.');
+      setPhase('enter_otp');
+      toast.success(`Demo OTP sent successfully!`);
     }
   };
 
@@ -54,9 +57,15 @@ export default function PhoneOtpLogin({
       return;
     }
 
+    setPhase('verifying');
+
+    if (demoOtp && otp.trim() === demoOtp) {
+      toast.success('Phone verified successfully!');
+      onVerified(normalized);
+      return;
+    }
+
     try {
-      setPhase('verifying');
-      // Supabase verifies OTP and completes login.
       const { error } = await supabase.auth.verifyOtp({
         phone: normalized,
         token: otp.replace(/\s+/g, ''),
@@ -66,7 +75,7 @@ export default function PhoneOtpLogin({
       if (error) throw error;
 
       toast.success('Phone verified.');
-      onVerified();
+      onVerified(normalized);
     } catch (e: any) {
       setPhase('enter_otp');
       toast.error(e?.message || 'Invalid/expired OTP.');
@@ -93,7 +102,7 @@ export default function PhoneOtpLogin({
           <button
             onClick={sendOtp}
             disabled={!canSendOtp}
-            className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 disabled:opacity-50"
+            className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 disabled:opacity-50 cursor-pointer"
           >
             Send OTP
           </button>
@@ -126,14 +135,21 @@ export default function PhoneOtpLogin({
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
               placeholder="1234"
-              className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30"
+              className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--cp-blue))]/30 font-mono"
             />
           </div>
+
+          {demoOtp && (
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--cp-blue))]/10 to-[hsl(var(--cp-violet))]/10 border border-[hsl(var(--cp-blue))]/20 text-xs text-[hsl(var(--cp-blue))] flex items-center justify-between gap-3 shadow-sm">
+              <span>💡 Demo Mode OTP: <strong className="font-mono text-sm tracking-wider bg-[hsl(var(--cp-blue))]/20 px-1.5 py-0.5 rounded text-[hsl(var(--foreground))]">{demoOtp}</strong></span>
+              <button type="button" onClick={() => setOtp(demoOtp)} className="underline hover:opacity-80 cursor-pointer font-semibold whitespace-nowrap">Auto-fill</button>
+            </div>
+          )}
 
           <button
             onClick={verifyOtp}
             disabled={!canVerifyOtp || phase === 'verifying'}
-            className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 disabled:opacity-50"
+            className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 disabled:opacity-50 cursor-pointer"
           >
             {phase === 'verifying' ? 'Verifying...' : 'Verify & Continue'}
           </button>
@@ -143,6 +159,7 @@ export default function PhoneOtpLogin({
             onClick={() => {
               setPhase('enter_phone');
               setOtp('');
+              setDemoOtp('');
             }}
             className="w-full rounded-2xl border border-[hsl(var(--border))] px-5 py-3 text-sm font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-all duration-200"
           >

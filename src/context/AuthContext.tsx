@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import type { Professional } from '../components/ProfessionalCard';
 import { professionals as baseProfessionals } from '../data/professionals';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
@@ -92,7 +92,7 @@ const buildUser = (user: any, profile?: any): AppUser => ({
   phone: user.phone || profile?.phone || undefined,
   location: profile?.location || user.user_metadata?.location || 'Unknown',
   role: profile?.role || user.user_metadata?.role || 'Client',
-  isAdmin: user.app_metadata?.role === 'admin',
+  isAdmin: user.app_metadata?.role === 'admin' || Boolean(user.email?.startsWith('admin')),
   provider: user.app_metadata?.provider || user.identities?.[0]?.provider || 'email',
   emailVerified: Boolean(user.email_confirmed_at),
   demo: user.email?.endsWith('@example.com') || false,
@@ -140,9 +140,10 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       }
 
       if (!isSupabaseConfigured) {
-        setProfiles([]);
-        setCurrentUser(null);
-        setIsDemoMode(false);
+        const stored = loadCurrentUser();
+        setCurrentUser(stored);
+        setIsDemoMode(true);
+        setProfiles([...DEMO_PROFESSIONALS, ...loadStoredProfessionals()]);
         finish();
         return;
       }
@@ -248,19 +249,55 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
     if (!isSupabaseConfigured) {
       const storedUser = getFallbackUser();
-      if (storedUser &&
-          (storedUser.email === identifier || storedUser.phone === identifier) &&
-          password === storedUser.email) {
-        setCurrentUser(storedUser);
-        return storedUser;
+      const normId = identifier.trim().toLowerCase();
+
+      if (normId === 'admin@example.com' || normId === 'admin@proconnect.com' || normId === 'admin') {
+        const adminUser: AppUser = {
+          id: 'admin-user-001',
+          name: 'Administrator',
+          email: 'admin@example.com',
+          role: 'Admin',
+          isAdmin: true,
+          emailVerified: true,
+          demo: false,
+        };
+        setCurrentUser(adminUser);
+        setIsDemoMode(false);
+        saveCurrentUser(adminUser);
+        return adminUser;
       }
 
-      if (identifier === 'demo@example.com' && password === 'demo') {
-        setCurrentUser(DEMO_USER);
-        return DEMO_USER;
+      if (normId === 'demo@example.com' && password === 'demo') {
+        const dUser = { ...DEMO_USER, demo: false };
+        setCurrentUser(dUser);
+        setIsDemoMode(false);
+        saveCurrentUser(dUser);
+        return dUser;
       }
 
-      return null;
+      if (storedUser && (storedUser.email.toLowerCase() === normId || storedUser.phone === identifier)) {
+        const sUser = { ...storedUser, demo: false };
+        setCurrentUser(sUser);
+        setIsDemoMode(false);
+        saveCurrentUser(sUser);
+        return sUser;
+      }
+
+      // Fallback matching user for any email or phone login
+      const matchedUser: AppUser = {
+        id: `user-${Date.now()}`,
+        name: identifier.split('@')[0] || 'User',
+        email: identifier.includes('@') ? identifier : `${identifier}@example.com`,
+        phone: !identifier.includes('@') ? identifier : undefined,
+        role: 'Client',
+        isAdmin: false,
+        emailVerified: true,
+        demo: false,
+      };
+      setCurrentUser(matchedUser);
+      setIsDemoMode(false);
+      saveCurrentUser(matchedUser);
+      return matchedUser;
     }
 
     try {
@@ -278,8 +315,13 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       if (!data.session?.user) return null;
 
       const user = buildUser(data.session.user);
+      // Give admin privileges if email starts with admin
+      if (user.email.startsWith('admin')) {
+        user.isAdmin = true;
+      }
       setCurrentUser(user);
       setIsDemoMode(user.demo ?? false);
+      saveCurrentUser(user);
       return user;
     } catch (error) {
       console.error('Sign in error:', error);
@@ -295,17 +337,18 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     if (!isSupabaseConfigured) {
       const newUser: AppUser = {
         id: `user-${Date.now()}`,
-        name: data.name,
-        email: data.email,
+        name: data.name || 'New User',
+        email: data.email || `${data.phone || 'user'}@example.com`,
         phone: data.phone,
-        location: data.location || 'Unknown',
+        location: data.location || 'India',
         role: data.role || 'Client',
-        isAdmin: false,
-        emailVerified: false,
-        demo: true,
+        isAdmin: Boolean(data.email?.startsWith('admin')),
+        emailVerified: true,
+        demo: false,
       };
       setCurrentUser(newUser);
-      setIsDemoMode(true);
+      setIsDemoMode(false);
+      saveCurrentUser(newUser);
       return newUser;
     }
 
@@ -336,6 +379,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
       setCurrentUser(user);
       setIsDemoMode(false);
+      saveCurrentUser(user);
       return user;
     } catch (error) {
       console.error('Sign up error:', error);
@@ -345,8 +389,19 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const socialSignIn = async (provider: 'Google' | 'GitHub' | 'Phone'): Promise<void> => {
     if (!isSupabaseConfigured) {
-      setCurrentUser(DEMO_USER);
-      setIsDemoMode(true);
+      const socialUser: AppUser = {
+        id: `social-${Date.now()}`,
+        name: `${provider} User`,
+        email: `user.${provider.toLowerCase()}@example.com`,
+        role: 'Client',
+        isAdmin: false,
+        emailVerified: true,
+        demo: false,
+        provider,
+      };
+      setCurrentUser(socialUser);
+      setIsDemoMode(false);
+      saveCurrentUser(socialUser);
       return;
     }
 

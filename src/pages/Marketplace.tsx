@@ -14,7 +14,7 @@ interface MarketplaceProps {
   toggleTheme: () => void;
 }
 
-type Service = {
+export type Service = {
   id: string;
   title: string;
   provider: string;
@@ -27,21 +27,24 @@ type Service = {
   skills: string[];
   delivery: string;
   badge: string | null;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
 };
 
-const services: Service[] = [
-  { id: 's1', title: 'Math & Science Tutoring', provider: 'Ananya Singh', category: 'Education', price: '₹500/hr', rating: 4.9, reviews: 245, verified: true, avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&h=80&fit=crop&crop=face', skills: ['Mathematics', 'Physics', 'JEE Prep', 'CBSE'], delivery: 'Online / In-person', badge: 'Top Rated' },
-  { id: 's2', title: 'Full Stack Web Development', provider: 'Arjun Mehta', category: 'Technology', price: '₹2,500/hr', rating: 4.8, reviews: 189, verified: true, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', skills: ['React', 'Node.js', 'TypeScript', 'AWS'], delivery: 'Remote', badge: 'Expert' },
-  { id: 's3', title: 'Cardiology Consultation', provider: 'Dr. Priya Sharma', category: 'Healthcare', price: '₹800/consult', rating: 4.9, reviews: 312, verified: true, avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=80&h=80&fit=crop&crop=face', skills: ['Cardiology', 'ECG', 'Echocardiography'], delivery: 'In-clinic / Video', badge: 'Verified Pro' },
-  { id: 's4', title: 'Private Chef & Catering', provider: 'Chef Ravi Kumar', category: 'Culinary', price: '₹1,800/hr', rating: 4.7, reviews: 98, verified: true, avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=80&h=80&fit=crop&crop=face', skills: ['French Cuisine', 'Catering', 'Menu Design'], delivery: 'On-site', badge: 'Premium' },
-  { id: 's5', title: 'UI/UX Design & Prototyping', provider: 'Vikram Nair', category: 'Creative', price: '₹1,500/hr', rating: 4.6, reviews: 134, verified: false, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', skills: ['Figma', 'User Research', 'Design Systems'], delivery: 'Remote', badge: null },
-  { id: 's6', title: 'ICU Nursing Care', provider: 'Kavya Reddy', category: 'Healthcare', price: '₹600/shift', rating: 4.8, reviews: 76, verified: true, avatar: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=80&h=80&fit=crop&crop=face', skills: ['Critical Care', 'IV Therapy', 'Patient Care'], delivery: 'Home / Hospital', badge: 'Verified Pro' },
-  { id: 's7', title: 'Digital Marketing Strategy', provider: 'Neha Kapoor', category: 'Business', price: '₹1,200/hr', rating: 4.7, reviews: 167, verified: true, avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=80&h=80&fit=crop&crop=face', skills: ['SEO', 'SEM', 'Content Marketing', 'Social Media'], delivery: 'Remote', badge: 'Top Rated' },
-  { id: 's8', title: 'Machine Learning Consulting', provider: 'Rohan Das', category: 'Technology', price: '₹3,000/hr', rating: 4.9, reviews: 88, verified: true, avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', skills: ['Machine Learning', 'Python', 'TensorFlow', 'Data Science'], delivery: 'Remote', badge: 'Expert' },
-  { id: 's9', title: 'Legal Consultation', provider: 'Adv. Sunita Rao', category: 'Business', price: '₹2,000/hr', rating: 4.8, reviews: 143, verified: true, avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', skills: ['Corporate Law', 'Contract Law', 'IP Law'], delivery: 'In-office / Video', badge: 'Verified Pro' },
-  { id: 's10', title: 'Photography & Videography', provider: 'Karan Malhotra', category: 'Creative', price: '₹800/hr', rating: 4.6, reviews: 201, verified: false, avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=80&h=80&fit=crop&crop=face', skills: ['Photography', 'Video Editing', 'Adobe Premiere'], delivery: 'On-site', badge: null },
-  { id: 's11', title: 'Physiotherapy Sessions', provider: 'Dr. Meera Joshi', category: 'Healthcare', price: '₹700/session', rating: 4.9, reviews: 156, verified: true, avatar: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=80&h=80&fit=crop&crop=face', skills: ['Physiotherapy', 'Sports Injury', 'Rehabilitation'], delivery: 'Clinic / Home', badge: 'Top Rated' },
-  { id: 's12', title: 'Architecture & Interior Design', provider: 'Prateek Sharma', category: 'Engineering', price: '₹2,200/hr', rating: 4.7, reviews: 92, verified: true, avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', skills: ['Architecture', 'Interior Design', 'AutoCAD', '3D Modeling'], delivery: 'On-site / Remote', badge: 'Expert' },
+export const marketplaceServices: Service[] = [
+  { id: 's1', title: 'Math & Science Tutoring', provider: 'Ananya Singh', category: 'Education', price: '₹500/hr', rating: 4.9, reviews: 245, verified: true, avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&h=80&fit=crop&crop=face', skills: ['Mathematics', 'Physics', 'JEE Prep', 'CBSE'], delivery: 'Online / In-person', badge: 'Top Rated', latitude: 18.5204, longitude: 73.8567, city: 'Pune' },
+  { id: 's2', title: 'Full Stack Web Development', provider: 'Arjun Mehta', category: 'Technology', price: '₹2,500/hr', rating: 4.8, reviews: 189, verified: true, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', skills: ['React', 'Node.js', 'TypeScript', 'AWS'], delivery: 'Remote', badge: 'Expert', latitude: 12.9716, longitude: 77.5946, city: 'Bangalore' },
+  { id: 's3', title: 'Cardiology Consultation', provider: 'Dr. Priya Sharma', category: 'Healthcare', price: '₹800/consult', rating: 4.9, reviews: 312, verified: true, avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=80&h=80&fit=crop&crop=face', skills: ['Cardiology', 'ECG', 'Echocardiography'], delivery: 'In-clinic / Video', badge: 'Verified Pro', latitude: 19.0760, longitude: 72.8777, city: 'Mumbai' },
+  { id: 's4', title: 'Private Chef & Catering', provider: 'Chef Ravi Kumar', category: 'Culinary', price: '₹1,800/hr', rating: 4.7, reviews: 98, verified: true, avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=80&h=80&fit=crop&crop=face', skills: ['French Cuisine', 'Catering', 'Menu Design'], delivery: 'On-site', badge: 'Premium', latitude: 28.6139, longitude: 77.2090, city: 'Delhi' },
+  { id: 's5', title: 'UI/UX Design & Prototyping', provider: 'Vikram Nair', category: 'Creative', price: '₹1,500/hr', rating: 4.6, reviews: 134, verified: false, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', skills: ['Figma', 'User Research', 'Design Systems'], delivery: 'Remote', badge: null, latitude: 17.3850, longitude: 78.4867, city: 'Hyderabad' },
+  { id: 's6', title: 'ICU Nursing Care', provider: 'Kavya Reddy', category: 'Healthcare', price: '₹600/shift', rating: 4.8, reviews: 76, verified: true, avatar: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=80&h=80&fit=crop&crop=face', skills: ['Critical Care', 'IV Therapy', 'Patient Care'], delivery: 'Home / Hospital', badge: 'Verified Pro', latitude: 13.0827, longitude: 80.2707, city: 'Chennai' },
+  { id: 's7', title: 'Digital Marketing Strategy', provider: 'Neha Kapoor', category: 'Business', price: '₹1,200/hr', rating: 4.7, reviews: 167, verified: true, avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=80&h=80&fit=crop&crop=face', skills: ['SEO', 'SEM', 'Content Marketing', 'Social Media'], delivery: 'Remote', badge: 'Top Rated', latitude: 19.1250, longitude: 72.8500, city: 'Mumbai Suburbs' },
+  { id: 's8', title: 'Machine Learning Consulting', provider: 'Rohan Das', category: 'Technology', price: '₹3,000/hr', rating: 4.9, reviews: 88, verified: true, avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', skills: ['Machine Learning', 'Python', 'TensorFlow', 'Data Science'], delivery: 'Remote', badge: 'Expert', latitude: 12.9200, longitude: 77.6100, city: 'Bangalore' },
+  { id: 's9', title: 'Legal Consultation', provider: 'Adv. Sunita Rao', category: 'Business', price: '₹2,000/hr', rating: 4.8, reviews: 143, verified: true, avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', skills: ['Corporate Law', 'Contract Law', 'IP Law'], delivery: 'In-office / Video', badge: 'Verified Pro', latitude: 28.5355, longitude: 77.2650, city: 'Delhi' },
+  { id: 's10', title: 'Photography & Videography', provider: 'Karan Malhotra', category: 'Creative', price: '₹800/hr', rating: 4.6, reviews: 201, verified: false, avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=80&h=80&fit=crop&crop=face', skills: ['Photography', 'Video Editing', 'Adobe Premiere'], delivery: 'On-site', badge: null, latitude: 18.5500, longitude: 73.9000, city: 'Pune' },
+  { id: 's11', title: 'Physiotherapy Sessions', provider: 'Dr. Meera Joshi', category: 'Healthcare', price: '₹700/session', rating: 4.9, reviews: 156, verified: true, avatar: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=80&h=80&fit=crop&crop=face', skills: ['Physiotherapy', 'Sports Injury', 'Rehabilitation'], delivery: 'Clinic / Home', badge: 'Top Rated', latitude: 23.0500, longitude: 72.5800, city: 'Ahmedabad' },
+  { id: 's12', title: 'Architecture & Interior Design', provider: 'Prateek Sharma', category: 'Engineering', price: '₹2,200/hr', rating: 4.7, reviews: 92, verified: true, avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', skills: ['Architecture', 'Interior Design', 'AutoCAD', '3D Modeling'], delivery: 'On-site / Remote', badge: 'Expert', latitude: 26.9200, longitude: 75.8000, city: 'Jaipur' },
 ];
 
 const serviceCategories = ['All', 'Education', 'Healthcare', 'Technology', 'Culinary', 'Creative', 'Business', 'Engineering'];
@@ -68,7 +71,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ theme, toggleTheme }) => {
   );
 
   const filtered = useMemo(() => {
-    let list = [...services];
+    let list = [...marketplaceServices];
     if (search) list = list.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.provider.toLowerCase().includes(search.toLowerCase()) || s.skills.some(sk => sk.toLowerCase().includes(search.toLowerCase())));
     if (selectedCategory !== 'All') list = list.filter(s => s.category === selectedCategory);
     if (verifiedOnly) list = list.filter(s => s.verified);

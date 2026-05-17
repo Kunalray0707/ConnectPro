@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Star, BadgeCheck, Zap } from 'lucide-react';
@@ -17,11 +17,18 @@ export interface Professional {
   matchScore: number;
   verified: boolean;
   available: boolean;
+  status?: 'online' | 'busy' | 'offline';
   skills: string[];
   avatar: string;
   rate?: string;
   experience: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  state?: string;
+  country?: string;
 }
+
 
 interface ProfessionalCardProps {
   professional: Professional;
@@ -62,9 +69,16 @@ const ProfessionalCard: React.FC<ProfessionalCardProps> = ({ professional, index
               height={52}
 className="w-[52px] h-[52px] rounded-xl object-cover"
             />
-            {professional.available && (
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-[hsl(var(--card))] rounded-full" />
-            )}
+            <span
+              className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 border-2 border-[hsl(var(--card))] rounded-full ${
+                professional.status === 'online' || (professional.available && !professional.status)
+                  ? 'bg-emerald-500'
+                  : professional.status === 'busy'
+                  ? 'bg-amber-500'
+                  : 'bg-gray-400'
+              }`}
+              title={`Status: ${professional.status || (professional.available ? 'online' : 'offline')}`}
+            />
           </div>
           <div>
             <div className="flex items-center gap-1.5">

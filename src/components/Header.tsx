@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, Zap } from 'lucide-react';
+import { Menu, X, Sun, Moon, Zap, Shield, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -17,12 +18,16 @@ const navLinks = [
   { label: 'Marketplace', path: '/marketplace' },
   { label: 'Dashboard', path: '/dashboard' },
   { label: 'About', path: '/about' },
+  { label: 'Admin Portal', path: '/admin', icon: Shield },
 ];
 
 const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { currentUser } = useAuth();
+
+  const allNavLinks = navLinks;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -58,18 +63,20 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-            {navLinks.map((link) => {
+            {allNavLinks.map((link) => {
               const isActive = location.pathname === link.path;
+              const Icon = (link as any).icon;
               return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 group ${
+                  className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 group flex items-center gap-2 ${
                     isActive
                       ? 'text-[hsl(var(--cp-indigo))]'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
+                  {Icon && <Icon size={16} />}
                   {link.label}
                   {isActive && (
                     <motion.span
@@ -84,6 +91,14 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
           </nav>
 
           <div className="flex items-center gap-3">
+            <Link
+              to={currentUser ? "/settings/profile" : "/login"}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[hsl(var(--cp-blue))]/15 to-[hsl(var(--cp-violet))]/15 border border-[hsl(var(--cp-blue))]/30 text-[hsl(var(--cp-blue))] font-semibold text-sm hover:scale-105 transition-all duration-200"
+            >
+              <User size={16} />
+              <span className="hidden sm:inline">{currentUser ? currentUser.name || "User" : "Sign In"}</span>
+            </Link>
+
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
@@ -116,18 +131,20 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
             aria-label="Mobile navigation"
           >
             <nav className="flex flex-col gap-1">
-              {navLinks.map((link) => {
+              {allNavLinks.map((link) => {
                 const isActive = location.pathname === link.path;
+                const Icon = (link as any).icon;
                 return (
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                       isActive
                         ? 'bg-[hsl(var(--cp-indigo))]/10 text-[hsl(var(--cp-indigo))]'
                         : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'
                     }`}
                   >
+                    {Icon && <Icon size={16} />}
                     {link.label}
                   </Link>
                 );

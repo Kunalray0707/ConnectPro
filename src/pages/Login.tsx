@@ -90,17 +90,15 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme }) => {
             <div className="grid gap-3 mb-8 sm:grid-cols-2">
               <button
                 onClick={() => setMode('signin')}
-                className={`rounded-3xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ${
-                  mode === 'signin' ? 'bg-[hsl(var(--cp-blue))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
-                }`}
+                className={`rounded-3xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ${mode === 'signin' ? 'bg-[hsl(var(--cp-blue))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  }`}
               >
                 Sign in
               </button>
               <button
                 onClick={() => setMode('signup')}
-                className={`rounded-3xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ${
-                  mode === 'signup' ? 'bg-[hsl(var(--cp-blue))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
-                }`}
+                className={`rounded-3xl border px-4 py-3 text-sm font-semibold transition-all duration-200 ${mode === 'signup' ? 'bg-[hsl(var(--cp-blue))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
+                  }`}
               >
                 Sign up
               </button>
@@ -127,11 +125,31 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme }) => {
               </button>
             </div>
 
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 text-xs text-[hsl(var(--foreground))] flex items-center justify-between gap-4 shadow-sm">
+              <div>
+                <p className="font-semibold text-purple-400 mb-1 flex items-center gap-1.5"><ShieldCheck size={14} /> Demo Admin Credentials (for Admin Portal):</p>
+                <p className="font-mono text-[hsl(var(--muted-foreground))]">Email: <span className="text-white font-bold">admin@example.com</span> | Pass: <span className="text-white font-bold">admin</span></p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setEmail('admin@example.com');
+                  setPassword('admin');
+                  toast.success('Admin credentials auto-filled!');
+                }}
+                className="px-3 py-2 rounded-xl bg-purple-500/20 text-purple-300 font-semibold hover:bg-purple-500/30 transition-all duration-200 whitespace-nowrap cursor-pointer"
+              >
+                Auto-fill
+              </button>
+            </div>
+
             <div className="space-y-5">
               {mode === 'signin' && (
                 <PhoneOtpLogin
-                  onVerified={() => {
-                    toast.success('Signed in');
+                  onVerified={async (phoneStr) => {
+                    await signIn(phoneStr || '+919876543210', 'phone');
+                    toast.success('Signed in successfully');
                     navigate('/dashboard');
                   }}
                   onCancel={() => setMode('signin')}
@@ -214,10 +232,45 @@ const Login: React.FC<LoginProps> = ({ theme, toggleTheme }) => {
                   />
                 </div>
 
-                {mode !== 'signin' && (
+                {mode === 'signin' ? (
+                  <div className="space-y-3">
+                    <button
+                      type="submit"
+                      className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 shadow-md"
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const u = await signIn('admin@example.com', 'admin');
+                        if (u) {
+                          toast.success('Logged in as Admin Demo');
+                          navigate('/admin');
+                        }
+                      }}
+                      className="w-full rounded-2xl border border-purple-500/30 bg-purple-500/10 px-5 py-3 text-sm font-semibold text-purple-400 hover:bg-purple-500/20 transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <ShieldCheck size={18} /> Quick Admin Demo Login
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const u = await signIn('demo@example.com', 'demo');
+                        if (u) {
+                          toast.success('Logged in as Demo User');
+                          navigate('/dashboard');
+                        }
+                      }}
+                      className="w-full rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 px-5 py-3 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all duration-200 text-center"
+                    >
+                      Quick Demo User Login
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="submit"
-                    className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200"
+                    className="w-full rounded-2xl bg-gradient-to-r from-[hsl(var(--cp-blue))] to-[hsl(var(--cp-violet))] px-5 py-3 text-sm font-semibold text-white hover:scale-105 transition-all duration-200 shadow-md"
                   >
                     Create account
                   </button>

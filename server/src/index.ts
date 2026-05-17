@@ -6,6 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 
 import { createCheckoutSession } from './stripe/createCheckoutSession';
 import { handleStripeWebhook } from './stripe/handleStripeWebhook';
+import { adminRouter } from './admin';
 
 dotenv.config();
 
@@ -24,6 +25,9 @@ app.use(
     credentials: true,
   }),
 );
+
+app.use('/api/admin', adminRouter);
+app.use('/api', adminRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
