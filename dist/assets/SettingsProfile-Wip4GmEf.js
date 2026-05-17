@@ -1,1 +1,0 @@
-import{N as e,j as t}from"./index-BNp2J8lY.js";import n from"./Settings-CvjjY904.js";e();var r=t(),i=({theme:e,toggleTheme:t})=>(0,r.jsx)(n,{theme:e,toggleTheme:t});export{i as default};
