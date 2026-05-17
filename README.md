@@ -48,6 +48,38 @@
 
 ---
 
+## 📁 Project Structure & File Organization
+
+```text
+ConnectPro/
+├── public/                 # Static public assets & icons
+├── server/                 # Express & Socket.io standalone real-time messaging server
+├── src/
+│   ├── components/         # Modular UI components (Cards, Modals, Maps, Wizards, Headers)
+│   ├── context/            # Global React Context providers (AuthContext)
+│   ├── data/               # Mock data, constants, and initial professional listings
+│   ├── lib/                # Helper utilities, formatting functions, & Supabase client config
+│   ├── pages/              # Core application route pages
+│   │   ├── Discover.tsx    # Professional discovery & map search
+│   │   ├── Marketplace.tsx # Premium service listings
+│   │   ├── SmartHire.tsx   # AI matching questionnaire
+│   │   ├── BookingNew.tsx  # Interactive scheduling wizard
+│   │   ├── Dashboard.tsx   # Client & Professional activity hub
+│   │   ├── Admin.tsx       # Enterprise command center & KYC verification
+│   │   ├── Profile.tsx     # Professional portfolio view
+│   │   ├── Settings.tsx    # Modular account configuration
+│   │   └── ...
+│   ├── App.tsx             # Root layout, Supabase auth init, and React Router config
+│   └── index.tsx           # React DOM application entry point
+├── supabase-migrations/    # Supabase PostgreSQL schema migrations & RLS security rules
+├── vercel.json             # Vercel deployment configuration (SPA routing rewrites)
+├── tailwind.config.cjs     # Tailwind CSS theme tokens & animations configuration
+├── vite.config.ts          # Vite bundler & plugin setup
+└── package.json            # Project dependencies and custom build scripts
+```
+
+---
+
 ## 🚀 Quick Start & Local Setup
 
 To run this project locally on your machine:
